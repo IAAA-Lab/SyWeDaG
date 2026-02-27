@@ -1,0 +1,12 @@
+streamlit==1.32.0
+streamlit-folium==0.17.0
+folium==0.15.1
+geopy==2.4.1
+requests==2.31.0
+pandas==2.2.0
+numpy==1.26.3
+plotly==5.18.0
+python-dotenv==1.0.0
+shapely==2.0.2
+openpyxl==3.1.2
+xclim==0.55

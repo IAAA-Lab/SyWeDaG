@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+
+# PyInstaller
+*.spec
+
+# Database files
+data/
+
+# Configuration with sensitive data
+# TODO: Remove this line when APIKEY insertion is implemented
+config/config.json
+
+.env
+
+# IDE and editor settings
+.vscode/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
