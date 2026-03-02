@@ -33,6 +33,7 @@ streamlit-desktop-app build src/main.py ^
     --collect-all requests ^
     --collect-all geopy ^
     --collect-all shapely ^
+    --collect-all sklearn ^
     --copy-metadata streamlit ^
     --copy-metadata streamlit-folium ^
     --copy-metadata folium ^
@@ -40,6 +41,7 @@ streamlit-desktop-app build src/main.py ^
     --copy-metadata requests ^
     --copy-metadata geopy ^
     --copy-metadata shapely ^
+    --copy-metadata scikit-learn ^
     --add-data "config;config" ^
     --add-data "assets;assets" ^
     --add-data "assets/geocountries;assets/geocountries" ^
@@ -63,7 +65,14 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import data_sources.aemet_source ^
     --hidden-import data_sources.base_source ^
     --hidden-import data_sources.__init__ ^
-    --hidden-import streamlit_folium ^
+    --hidden-import generators ^
+    --hidden-import generators.k_neighbors ^
+    --hidden-import generators.synthetic_generator ^
+    --hidden-import generators.mbc_correction ^
+    --hidden-import sklearn ^
+    --hidden-import sklearn.neighbors ^
+    --hidden-import sklearn.preprocessing ^
+    --hidden-import sklearn.linear_model ^
     --hidden-import folium ^
     --hidden-import folium.plugins ^
     --hidden-import geopy ^

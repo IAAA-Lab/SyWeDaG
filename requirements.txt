@@ -9,4 +9,5 @@ plotly==5.18.0
 python-dotenv==1.0.0
 shapely==2.0.2
 openpyxl==3.1.2
+scikit-learn==1.8.0
 xclim==0.55

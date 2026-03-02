@@ -27,6 +27,7 @@ from database.sqliteDB import (
     insert_generated_hourly_data
 )
 #from generators.mbc_correction import MBCnCorrector
+from generators.k_neighbors import KNeighborsCorrector
 
 class SyntheticWeatherGenerator:
     """
@@ -883,9 +884,6 @@ class SyntheticWeatherGenerator:
         # 1. Generar datos diarios sintéticos (ciclo del histórico)
         daily_data = self._generate_daily_synthetic()
         print(f"📅 Generados {len(daily_data)} registros diarios sintéticos")
-
-        # Guardar datos diarios ciclados
-        cycled_daily_data = daily_data
         
         # 2. Ajustar a predicciones mensuales si se proporcionan
         if predictions_df is not None and not predictions_df.empty:
@@ -893,12 +891,23 @@ class SyntheticWeatherGenerator:
             
             # 2.5. Corrección multivariada MBCn para consistencia inter-variables
             #print("🔄 Aplicando corrección multivariada MBCn...")
-            #mbc_corrector = MBCnCorrector(n_iter=30)
+            #mbc_corrector = MBCnCorrector(n_iter=30, extrapolation_quantile=0.95er=30)
             #daily_data = mbc_corrector.correct(
             #    adjusted_data=daily_data,
-            #    historical_data=cycled_daily_data
+            #    historical_data=historical_data
             #)
             #print("✅ Corrección MBCn aplicada")
+
+            # 2.5. Corrección K-Vecinos: adaptar variables no modificadas
+            #       (viento, humedad, presión) usando los días históricos más
+            #       parecidos en temperatura y precipitación.
+            print("🔄 Aplicando corrección K-Vecinos para variables secundarias...")
+            knn_corrector = KNeighborsCorrector(k=1, month_weight=0.25)
+            daily_data = knn_corrector.correct(
+                adjusted_data=daily_data,
+                historical_data=self.historical_data
+            )
+            print("✅ Corrección K-Vecinos aplicada")
         
         # 3. Generar datos horarios desde los diarios
         hourly_data = self._generate_hourly_from_daily(daily_data)
