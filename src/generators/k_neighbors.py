@@ -211,7 +211,7 @@ class KNeighborsCorrector:
                 
                 # Obtener histórico con índice igual al generado si existe
                 hist_idx = rec_idx % len(hist_valid_records)
-                hist_same_idx = hist_valid_records[rec_idx] if rec_idx < len(hist_valid_records) else None
+                hist_same_idx = hist_valid_records[hist_idx] if hist_idx < len(hist_valid_records) else None
                 t_min_same = hist_same_idx.get('temperature_min', 'N/A') if hist_same_idx else '-'
                 t_max_same = hist_same_idx.get('temperature_max', 'N/A') if hist_same_idx else '-'
                 t_mean_same = hist_same_idx.get('temperature_mean', 'N/A') if hist_same_idx else '-'

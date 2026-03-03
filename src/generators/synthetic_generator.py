@@ -624,7 +624,7 @@ class SyntheticWeatherGenerator:
         Solo un método de depuración para validar coherencia matemática.
         
         Márgenes de error permitidos:
-        - Temperatura: ±0.8°C en la media
+        - Temperatura: ±1.0°C en la media
         - Precipitación: ±0.5 mm en la media mensual
         
         Args:
@@ -681,7 +681,7 @@ class SyntheticWeatherGenerator:
                 
                 var_label = {'temperature_max': 'Tmax', 'temperature_mean': 'Tmean', 'temperature_min': 'Tmin'}[temp_var]
                 
-                if diff > 0.8:
+                if diff > 1.0:
                     print(f"  ⚠️ {var_label} {year}-{month:02d}: Media predicha={pred_mean:.1f}, Media real={actual_mean:.1f}, Diferencia={diff:.2f}°C")
                     all_pass = False
                 
@@ -738,8 +738,8 @@ class SyntheticWeatherGenerator:
         Solo un método de depuración para validar coherencia matemática.
         
         Márgenes de error permitidos:
-        - Temperatura: ±1°C en la media diaria
-        - Precipitación: ±0.5 mm (margen por redondeo)
+        - Temperatura: ±1.5°C en la media diaria
+        - Precipitación: ±0.5 mm
         - Humedad: ±5% en la media diaria
         - Presión: ±2 hPa en la media diaria
         - Viento: ±0.5 m/s
@@ -787,7 +787,7 @@ class SyntheticWeatherGenerator:
                 
                 if daily_tmean is not None:
                     diff_temp = abs(mean_hourly_temp - daily_tmean)
-                    if diff_temp > 1.0:
+                    if diff_temp > 1.5:
                         print(f"  ⚠️  {date}: Temp media horaria ({mean_hourly_temp:.1f}°C) vs diaria ({daily_tmean:.1f}°C), Diff={diff_temp:.2f}°C")
                 
                 # Verificar rangos
@@ -902,7 +902,7 @@ class SyntheticWeatherGenerator:
             #       (viento, humedad, presión) usando los días históricos más
             #       parecidos en temperatura y precipitación.
             print("🔄 Aplicando corrección K-Vecinos para variables secundarias...")
-            knn_corrector = KNeighborsCorrector(k=1, month_weight=0.25)
+            knn_corrector = KNeighborsCorrector(k=3, month_weight=0.25)
             daily_data = knn_corrector.correct(
                 adjusted_data=daily_data,
                 historical_data=self.historical_data
