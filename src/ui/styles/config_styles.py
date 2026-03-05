@@ -32,7 +32,7 @@ def apply_config_styles():
     }
     
     .main .block-container {
-        padding-top: 20px !important;
+        padding-top: 8px !important;
         margin-top: 0 !important;
         padding-left: 0 !important;
         padding-right: 0 !important;
@@ -41,8 +41,8 @@ def apply_config_styles():
     
     /* Content wrapper with margins */
     .config-wrapper {
-        margin-left: 40px !important;
-        margin-right: 40px !important;
+        margin-left: 20px !important;
+        margin-right: 20px !important;
         position: relative !important;
         z-index: 1 !important;
     }
@@ -69,7 +69,7 @@ def apply_config_styles():
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-        margin: 20px auto !important;
+        margin: 5px auto !important;
     }
     
     .st-key-generate_button button {
@@ -139,7 +139,7 @@ def apply_config_styles():
     
     .modal-body p {
         font-size: 16px !important;
-        margin: 15px 0 !important;
+        margin: 5px 0 !important;
         color: black !important;
     }
     
@@ -202,6 +202,15 @@ def apply_config_styles():
         color: black !important;
     }
     
+    /* Reduce markdown separator (---) space */
+    .stMarkdown hr {
+        margin: 5px 0 !important;
+    }
+    
+    .stMarkdown {
+        margin-bottom: 0 !important;
+    }
+    
     /* View Template Button Styling */
     .st-key-view_template_button {
         display: flex !important;
@@ -218,6 +227,39 @@ def apply_config_styles():
     .st-key-view_template_button button:hover {
         opacity: 0.85 !important;
         background-color: #005799 !important;
+    }
+    
+    /* Reduce spacing in info boxes */
+    .stInfo {
+        padding: 8px 12px !important;
+        margin: 5px 0 !important;
+    }
+    
+    /* Reduce spacing in radio buttons */
+    .stRadio {
+        margin: 5px 0 !important;
+    }
+    
+    /* Reduce column spacing */
+    .stColumns [data-testid="column"] {
+        gap: 0 !important;
+    }
+    
+    /* Radio button text color */
+    .st-key-correction_method_radio label {
+        color: black !important;
+    }
+    
+    .st-key-correction_method_radio [role="radio"] {
+        color: black !important;
+    }
+    
+    .st-key-correction_method_radio span {
+        color: black !important;
+    }
+    
+    .st-key-correction_method_radio div {
+        color: black !important;
     }
                 
     </style>

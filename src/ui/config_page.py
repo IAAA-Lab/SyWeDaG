@@ -288,8 +288,46 @@ def render_config_page(config):
             predictions_df = None
     else:
         predictions_df = None
-    
-    # GENERATE button
+
+    # ── Secondary Variables Method ──────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Secondary Variables Method")
+
+    if predictions_df is not None:
+        _METHOD_OPTIONS = {
+            "K-Nearest Neighbors": "knn",
+            "Machine Learning (XGBoost)": "xgboost",
+        }
+
+        _METHOD_DESCRIPTIONS = {
+            "K-Nearest Neighbors":
+                "K-Nearest Neighbors (KNN) — Finds the K most similar historical days (by temperature and precipitation) and copies/averages their wind, humidity and pressure values. ✔️ Fast.",
+            "Machine Learning (XGBoost)":
+                "Machine Learning — XGBoost Sliding Window — Trains a gradient-boosting model on rolling windows of 5 consecutive days. ✔️ Captures inter-day dependencies. ❌ Requires ≥5 days.",
+        }
+        
+        selected_method_label = st.radio(
+            "Select method:",
+            options=list(_METHOD_OPTIONS.keys()),
+            index=1,
+            key="correction_method_radio",
+            horizontal=True,
+            help="Hover over options above for details"
+        )
+        
+        # Show tooltip-like description with HTML
+        st.markdown(f"""
+        <div style="background-color: #e8f4f8; border-left: 4px solid #0088FF; padding: 10px 12px; margin: 5px 0; border-radius: 4px; font-size: 13px;">
+            {_METHOD_DESCRIPTIONS[selected_method_label]}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info(
+            "Upload a valid monthly predictions file above to enable this selector. "
+            "Without predictions, all variables "
+            "are taken directly from the historical record with no correction applied."
+        )
+
     if st.button("GENERATE", key="generate_button"):
         st.session_state.generating = True
         st.rerun()
@@ -393,8 +431,21 @@ def render_config_page(config):
                     generation_end=f'{gen_end_year}-12-31'
                 )
                 
+                _METHOD_OPTIONS_MAP = {
+                    "K-Nearest Neighbors": "knn",
+                    "Machine Learning (XGBoost)": "xgboost",
+                }
+                selected_label = st.session_state.get(
+                    'correction_method_radio', 'K-Nearest Neighbors'
+                )
+                correction_method = _METHOD_OPTIONS_MAP.get(selected_label, 'knn')
+
                 job_id, rows_inserted, generated_data = generator.generate_and_save(
-                    latitude, longitude, predictions_df)
+                    latitude,
+                    longitude,
+                    predictions_df,
+                    correction_method
+                )
                 
                 # Clear modal
                 modal_placeholder.empty()

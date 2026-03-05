@@ -103,7 +103,7 @@ class KNeighborsCorrector:
                       mismo mes.
     """
 
-    def __init__(self, k: int = 3, month_weight: float = 0.5):
+    def __init__(self, k: int = 3, month_weight: float = 0.25):
         if k < 1:
             raise ValueError("k debe ser >= 1")
         self.k = k

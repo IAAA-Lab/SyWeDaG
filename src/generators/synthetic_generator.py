@@ -28,6 +28,7 @@ from database.sqliteDB import (
 )
 #from generators.mbc_correction import MBCnCorrector
 from generators.k_neighbors import KNeighborsCorrector
+from generators.xgboost_model import XGBoostWeatherModel
 
 class SyntheticWeatherGenerator:
     """
@@ -862,22 +863,30 @@ class SyntheticWeatherGenerator:
     # Main generation flow
     # ========================================================================
     
-    def generate(self, predictions_df: Optional[pd.DataFrame] = None, 
-                 ) -> Tuple[List[Dict], List[Dict], int]:
+    def generate(
+        self,
+        predictions_df: Optional[pd.DataFrame] = None,
+        correction_method: str = 'knn',
+    ) -> Tuple[List[Dict], List[Dict], int]:
         """
         Genera datos sintéticos completos (diarios + horarios).
-        
+
         Flow:
         1. Ciclar datos históricos diarios al período de generación
         2. Ajustar a predicciones mensuales (si se proporcionan)
-        3. Verificar que los datos diarios cuadran con las predicciones
+        3. Aplicar corrección de variables secundarias (KNN o XGBoost)
         4. Generar datos horarios
-        5. Verificar que los datos horarios cuadran con los diarios
-        
+        5. Verificar que datos diarios cuadran con predicciones mensuales (si se proporcionan)
+        6. Verificar que los datos horarios cuadran con los diarios
+
         Args:
-            predictions_df: DataFrame con predicciones mensuales (opcional)
-            max_iterations: Número máximo de intentos de ajuste
-            
+            predictions_df:    DataFrame con predicciones mensuales (opcional).
+            correction_method: Método de corrección para variables secundarias
+                               (viento, humedad, presión). Sólo se aplica cuando
+                               se proporcionan predicciones mensuales.
+                               'knn'     - K-Nearest Neighbors.
+                               'xgboost' - Modelo XGBoost de ventana deslizante.
+
         Returns:
             Tupla (daily_data, hourly_data, total_hourly_records)
         """
@@ -888,26 +897,39 @@ class SyntheticWeatherGenerator:
         # 2. Ajustar a predicciones mensuales si se proporcionan
         if predictions_df is not None and not predictions_df.empty:
             daily_data = self._adjust_to_monthly_predictions(daily_data, predictions_df)
-            
+
             # 2.5. Corrección multivariada MBCn para consistencia inter-variables
             #print("🔄 Aplicando corrección multivariada MBCn...")
-            #mbc_corrector = MBCnCorrector(n_iter=30, extrapolation_quantile=0.95er=30)
+            #mbc_corrector = MBCnCorrector(n_iter=30, extrapolation_quantile=0.95)
             #daily_data = mbc_corrector.correct(
             #    adjusted_data=daily_data,
-            #    historical_data=historical_data
+            #    historical_data=self.historical_data
             #)
             #print("✅ Corrección MBCn aplicada")
 
-            # 2.5. Corrección K-Vecinos: adaptar variables no modificadas
-            #       (viento, humedad, presión) usando los días históricos más
-            #       parecidos en temperatura y precipitación.
-            print("🔄 Aplicando corrección K-Vecinos para variables secundarias...")
-            knn_corrector = KNeighborsCorrector(k=3, month_weight=0.25)
-            daily_data = knn_corrector.correct(
-                adjusted_data=daily_data,
-                historical_data=self.historical_data
-            )
-            print("✅ Corrección K-Vecinos aplicada")
+            # 2.5. Corrección de variables numéricas secundarias (viento, humedad,
+            #      presión). Sólo se aplica cuando hay predicciones mensuales.
+            #      Las variables no numéricas (dirección viento, horas) se
+            #      mantienen tal como vienen del ciclo histórico.
+            if correction_method == 'xgboost':
+                print("🔄 Aplicando modelo XGBoost (ventana deslizante) para variables secundarias...")
+                xgb_model = XGBoostWeatherModel(window_size=5)
+                daily_data = xgb_model.correct(
+                    adjusted_data=daily_data,
+                    historical_data=self.historical_data
+                )
+                print("✅ Corrección XGBoost aplicada")
+            else:  # 'knn'
+                # Corrección K-Vecinos: adaptar variables no modificadas
+                # (viento, humedad, presión) usando los días históricos más
+                # parecidos en temperatura y precipitación.
+                print("🔄 Aplicando corrección K-Vecinos para variables secundarias...")
+                knn_corrector = KNeighborsCorrector(k=3, month_weight=0.25)
+                daily_data = knn_corrector.correct(
+                    adjusted_data=daily_data,
+                    historical_data=self.historical_data
+                )
+                print("✅ Corrección K-Vecinos aplicada")
         
         # 3. Generar datos horarios desde los diarios
         hourly_data = self._generate_hourly_from_daily(daily_data)
@@ -930,19 +952,22 @@ class SyntheticWeatherGenerator:
         return daily_data, hourly_data, len(hourly_data)
 
     def generate_and_save(
-        self, 
-        latitude: float, 
+        self,
+        latitude: float,
         longitude: float,
-        predictions_df: Optional[pd.DataFrame] = None
+        predictions_df: Optional[pd.DataFrame] = None,
+        correction_method: str = 'knn',
     ) -> Tuple[int, int, List[Dict]]:
         """
         Genera datos sintéticos, los guarda en BD y devuelve la info.
-        
+
         Args:
-            latitude: Latitud de la ubicación
-            longitude: Longitud de la ubicación
-            predictions_df: DataFrame con predicciones mensuales (opcional)
-            
+            latitude:          Latitud de la ubicación.
+            longitude:         Longitud de la ubicación.
+            predictions_df:    DataFrame con predicciones mensuales (opcional).
+            correction_method: Método de corrección para variables secundarias
+                               ('knn' o 'xgboost').
+
         Returns:
             Tupla (job_id, cantidad_registros_horarios, datos_horarios)
         """
@@ -978,7 +1003,7 @@ class SyntheticWeatherGenerator:
             print(f"📊 Insertadas {len(pred_tuples)} predicciones mensuales")
         
         # 3. Generar datos
-        daily_data, hourly_data, hourly_count = self.generate(predictions_df)
+        daily_data, hourly_data, hourly_count = self.generate(predictions_df, correction_method)
         
         # 4. Insertar datos diarios generados
         daily_tuples = []
