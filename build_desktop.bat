@@ -18,6 +18,12 @@ if exist meteoZar.spec (
     echo Removing spec file...
     del /q meteoZar.spec 2>nul
 )
+if exist data (
+    echo Cleaning data folder...
+    rmdir /s /q data 2>nul
+    timeout /t 1 /nobreak >nul
+    mkdir data
+)
 echo.
 
 echo Starting compilation...
@@ -34,6 +40,7 @@ streamlit-desktop-app build src/main.py ^
     --collect-all geopy ^
     --collect-all shapely ^
     --collect-all sklearn ^
+    --collect-all xgboost ^
     --copy-metadata streamlit ^
     --copy-metadata streamlit-folium ^
     --copy-metadata folium ^
@@ -42,6 +49,7 @@ streamlit-desktop-app build src/main.py ^
     --copy-metadata geopy ^
     --copy-metadata shapely ^
     --copy-metadata scikit-learn ^
+    --copy-metadata xgboost ^
     --add-data "config;config" ^
     --add-data "assets;assets" ^
     --add-data "assets/geocountries;assets/geocountries" ^
@@ -67,12 +75,21 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import data_sources.__init__ ^
     --hidden-import generators ^
     --hidden-import generators.k_neighbors ^
+    --hidden-import generators.xgboost_model ^
     --hidden-import generators.synthetic_generator ^
     --hidden-import generators.mbc_correction ^
     --hidden-import sklearn ^
     --hidden-import sklearn.neighbors ^
     --hidden-import sklearn.preprocessing ^
     --hidden-import sklearn.linear_model ^
+    --hidden-import sklearn.impute ^
+    --hidden-import sklearn.multioutput ^
+    --hidden-import xgboost ^
+    --hidden-import joblib ^
+    --hidden-import multiprocessing ^
+    --hidden-import multiprocessing.managers ^
+    --hidden-import multiprocessing.pool ^
+    --hidden-import concurrent.futures ^
     --hidden-import folium ^
     --hidden-import folium.plugins ^
     --hidden-import geopy ^
@@ -107,7 +124,7 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import base64 ^
     --hidden-import random ^
     --hidden-import sys ^
-    --onefile ^
+    --onedir ^
     --noconfirm
 
 echo.

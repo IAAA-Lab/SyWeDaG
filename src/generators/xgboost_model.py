@@ -241,7 +241,7 @@ class XGBoostWeatherModel:
             random_state=42,
             verbosity=0,
         )
-        self.model = MultiOutputRegressor(xgb_base, n_jobs=-1)
+        self.model = MultiOutputRegressor(xgb_base, n_jobs=1)
         self.model.fit(X, y)
         self._is_fitted = True
 
@@ -293,6 +293,63 @@ class XGBoostWeatherModel:
 
         self._apply_physical_constraints(result)
         return result
+
+    # ================================================================
+    # Vectorized batch prediction
+    # ================================================================
+
+    def _build_prediction_batch(self, data: List[Dict], start: int) -> np.ndarray:
+        """
+        Pre-build a feature matrix for all days [start, len(data)-1] at once
+        using vectorized NumPy shifts.
+
+        Since XGBoost input features are ONLY temperatures and precipitation
+        (never the predicted targets), every window can be constructed upfront
+        without waiting for previous predictions — enabling a single batch call.
+
+        Each row corresponds to one day's flattened window:
+            [day-ws+1_tmin, ..., day-ws+1_precip, ..., day_tmin, ..., day_precip]
+
+        Args:
+            data:  Full list of corrected records (temperature already set).
+            start: First day index to predict (= seed_days).
+
+        Returns:
+            X_batch: np.ndarray of shape (n_days_to_predict, n_features)
+        """
+        n_features = len(INPUT_FEATURES)
+        ws = self.window_size
+
+        # Build the full (n, n_features) matrix of input values once
+        full_matrix = np.array(
+            [
+                [float(r.get(f)) if r.get(f) is not None else np.nan
+                 for f in INPUT_FEATURES]
+                for r in data
+            ],
+            dtype=np.float64,
+        )  # shape: (n, n_features)
+
+        n = len(data)
+        n_predict = n - start
+
+        # For each day i in [start, n-1], the window is data[i-ws+1 : i+1].
+        # Flatten window into (ws * n_features) using stride tricks / stacking.
+        X_rows = np.empty((n_predict, ws * n_features), dtype=np.float64)
+
+        for offset in range(ws):
+            # offset=0  → oldest day in window (i - ws + 1)
+            # offset=ws-1 → newest day (i)
+            col_start = offset * n_features
+            col_end   = col_start + n_features
+            # For day i the source row is i - ws + 1 + offset = i - (ws - 1 - offset)
+            shift = ws - 1 - offset  # how many positions before day i
+            src_indices = np.arange(start - shift, n - shift)  # shape: (n_predict,)
+            # Clamp to [0, n-1] to handle edge cases (should not occur post-seed)
+            src_indices = np.clip(src_indices, 0, n - 1)
+            X_rows[:, col_start:col_end] = full_matrix[src_indices]
+
+        return X_rows
 
     # ================================================================
     # Physical constraints
@@ -437,21 +494,32 @@ class XGBoostWeatherModel:
             return corrected
 
         print(
-            f"🔄 Applying XGBoost sliding window to {remaining} days "
+            f"🔄 Applying XGBoost batch prediction to {remaining} days "
             f"(days {seed_days}–{n - 1})..."
         )
 
-        for i in range(seed_days, n):
-            window = corrected[i - self.window_size + 1 : i + 1]
-            day_preds = self.predict_day(window)
+        # Build the full feature matrix for all days at once (vectorized)
+        X_batch = self._build_prediction_batch(corrected, seed_days)
+        X_batch = self._x_imputer.transform(X_batch)  # shape: (remaining, n_features*ws)
+
+        # Single model call for all days — no Python loop overhead
+        raw_preds = self.model.predict(X_batch)  # shape: (remaining, n_valid_targets)
+
+        # Write predictions back and apply physical constraints
+        for j in range(remaining):
+            i = seed_days + j
+            pred_record: Dict[str, Optional[float]] = {
+                col: None for col in ALL_TARGET_VARS_NUMERIC
+            }
+            for k, col in enumerate(self.valid_target_vars):
+                pred_record[col] = float(raw_preds[j, k])
+
+            self._apply_physical_constraints(pred_record)
 
             # Write only valid numeric target vars; non-numeric fields stay
             # untouched (wind_direction, hour_* preserve adjusted_data values)
             for col in self.valid_target_vars:
-                corrected[i][col] = day_preds[col]
-
-            if i > seed_days and (i - seed_days) % 500 == 0:
-                print(f"  📍 XGBoost progress: {i}/{n - 1} days")
+                corrected[i][col] = pred_record[col]
 
         print(f"✅ XGBoost correction complete ({n} days total)")
         return corrected
