@@ -192,10 +192,6 @@ class KNeighborsCorrector:
 
             # -- Log: mostrar cada 60 días corregidos ----------------
             if idx_corrected % 460 == 0:
-                neighbor_dates = ', '.join([
-                    hist_valid_records[nbr_idxs[i]].get('date', 'N/A')
-                    for i in range(min(len(nbr_idxs), 3))
-                ])
                 nearest = hist_valid_records[nbr_idxs[0]]
                 
                 # Datos de temperatura y precipitación
@@ -209,21 +205,11 @@ class KNeighborsCorrector:
                 t_mean_nearest = nearest.get('temperature_mean', 'N/A')
                 p_nearest = nearest.get('precipitation', 'N/A')
                 
-                # Obtener histórico con índice igual al generado si existe
-                hist_idx = rec_idx % len(hist_valid_records)
-                hist_same_idx = hist_valid_records[hist_idx] if hist_idx < len(hist_valid_records) else None
-                t_min_same = hist_same_idx.get('temperature_min', 'N/A') if hist_same_idx else '-'
-                t_max_same = hist_same_idx.get('temperature_max', 'N/A') if hist_same_idx else '-'
-                t_mean_same = hist_same_idx.get('temperature_mean', 'N/A') if hist_same_idx else '-'
-                p_same = hist_same_idx.get('precipitation', 'N/A') if hist_same_idx else '-'
-                date_same = hist_same_idx.get('date', 'N/A') if hist_same_idx else '-'
                 
                 print(f"\n  📍 Día {idx_corrected+1}: {new_record.get('date', 'N/A')} "
-                      f"(vecino: {nearest.get('date', 'N/A')}) "
-                      f"(historico: {date_same})")
+                      f"(vecino: {nearest.get('date', 'N/A')}) ")
                 print(f"     Temperatura (Gen):      Tmin={t_min_gen}°C, Tmax={t_max_gen}°C, Tmean={t_mean_gen}°C, P={p_gen}mm")
                 print(f"     Temperatura (KVecino):  Tmin={t_min_nearest}°C, Tmax={t_max_nearest}°C, Tmean={t_mean_nearest}°C, P={p_nearest}mm")
-                print(f"     Temperatura (Historico):Tmin={t_min_same}°C, Tmax={t_max_same}°C, Tmean={t_mean_same}°C, P={p_same}mm")
                 print(f"     Humedad máx:             {record_before['humidity_max']} → {new_record.get('humidity_max')}")
                 print(f"     Humedad mín:             {record_before['humidity_min']} → {new_record.get('humidity_min')}")
                 print(f"     Humedad media:           {record_before['humidity_mean']} → {new_record.get('humidity_mean')}")
