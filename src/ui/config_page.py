@@ -74,6 +74,13 @@ def show_template_modal_dialog():
         st.markdown("Description of all variables used in predictions:")
         variables_df = create_variables_dataframe()
         st.dataframe(variables_df, width='stretch', hide_index=True)
+        
+        st.warning(
+            "⚠️ **Important**: To modify temperature data, you must provide predictions for "
+            "**all three temperature variables** (`temperature_min`, `temperature_mean`, and "
+            "`temperature_max`) for each month and year. If any temperature variable is missing, "
+            "the temperature adjustment will be skipped for that period."
+        )
 
 
 def get_data_source_instance(source_name: str, config: dict):
