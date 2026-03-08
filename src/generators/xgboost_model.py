@@ -44,7 +44,6 @@ from typing import List, Dict, Optional
 
 from xgboost import XGBRegressor
 from sklearn.multioutput import MultiOutputRegressor
-from sklearn.impute import SimpleImputer
 
 from generators.k_neighbors import KNeighborsCorrector
 
@@ -77,8 +76,11 @@ class XGBoostWeatherModel:
 
     Trains a multi-output XGBoost regressor on historical records using
     rolling windows of `window_size` days. For each new generated day the
-    model receives the window of temperatures and precipitation (including the
-    current day) and predicts wind speed, humidity and pressure.
+    model receives the window of input features (including the current day) 
+    and predicts wind speed, humidity and pressure.
+
+    Dynamically detects which input features and target variables are available
+    in the historical data and uses only those — no imputation needed.
 
     For the first `window_size - 1` days (insufficient window history) the
     existing K-Nearest Neighbors corrector is used as a seed.
@@ -93,65 +95,88 @@ class XGBoostWeatherModel:
             raise ValueError("window_size must be >= 1")
         self.window_size = window_size
         self.model: Optional[MultiOutputRegressor] = None
-        self.valid_target_vars: List[str] = []
-        self._x_imputer: Optional[SimpleImputer] = None
-        self._y_imputer: Optional[SimpleImputer] = None
+        self.valid_input_features: List[str] = []      # Dynamically detected features
+        self.valid_target_vars: List[str] = []         # Dynamically detected targets
         self._is_fitted: bool = False
 
     # ================================================================
     # Column validation
     # ================================================================
 
-    def _detect_valid_columns(self, historical_data: List[Dict]) -> List[str]:
+    def _detect_valid_columns(self, historical_data: List[Dict]) -> None:
         """
-        Detect numeric target columns that have at least one non-None value
-        in the historical dataset. Stores result in ``self.valid_target_vars``.
+        Detect both valid INPUT features and valid TARGET variables that have
+        at least one non-None value in the historical dataset.
+        Stores results in ``self.valid_input_features`` and ``self.valid_target_vars``.
 
         Args:
             historical_data: List of historical weather record dicts.
-
-        Returns:
-            List of valid target column names.
         """
-        valid = [
+        # Detect available input features
+        self.valid_input_features = [
+            col for col in INPUT_FEATURES
+            if any(r.get(col) is not None for r in historical_data)
+        ]
+
+        # Detect available target variables
+        self.valid_target_vars = [
             col for col in ALL_TARGET_VARS_NUMERIC
             if any(r.get(col) is not None for r in historical_data)
         ]
-        self.valid_target_vars = valid
 
-        excluded = set(ALL_TARGET_VARS_NUMERIC) - set(valid)
-        if excluded:
+        # Report excluded columns for debugging
+        excluded_features = set(INPUT_FEATURES) - set(self.valid_input_features)
+        excluded_targets = set(ALL_TARGET_VARS_NUMERIC) - set(self.valid_target_vars)
+
+        if excluded_features:
+            print(
+                f"  ℹ️  XGBoost: Excluded missing input features: "
+                f"{', '.join(sorted(excluded_features))}"
+            )
+        if excluded_targets:
             print(
                 f"  ℹ️  XGBoost: Excluded all-None target columns: "
-                f"{', '.join(sorted(excluded))}"
+                f"{', '.join(sorted(excluded_targets))}"
             )
 
-        return valid
+        print(
+            f"  ✅ Using {len(self.valid_input_features)} input features: "
+            f"{self.valid_input_features}"
+        )
+        print(
+            f"  ✅ Using {len(self.valid_target_vars)} target variables: "
+            f"{self.valid_target_vars}"
+        )
 
     # ================================================================
     # Window-building helpers
     # ================================================================
 
-    def _extract_input_row(self, window: List[Dict]) -> List[float]:
+    def _extract_input_row(self, window: List[Dict], features: List[str]) -> List[float]:
         """
-        Flatten a window of records into a 1-D feature vector.
-
-        Layout: [day0_tmin, day0_tmax, day0_tmean, day0_precip, day1_tmin, ...]
-
-        None values are replaced with np.nan (handled later by imputer).
+        Flatten a window of records using ONLY specified input features.
+        
+        Layout: [day0_feat0, day0_feat1, ..., day1_feat0, ...]
+        
+        Raises ValueError if any required feature is missing (None values
+        not expected since we only use detected valid features).
         """
         row: List[float] = []
         for record in window:
-            for feat in INPUT_FEATURES:
+            for feat in features:
                 val = record.get(feat)
-                row.append(float(val) if val is not None else np.nan)
+                if val is None:
+                    raise ValueError(
+                        f"Missing required input feature '{feat}' in record {record}. "
+                        f"Check data quality or use only detected valid features."
+                    )
+                row.append(float(val))
         return row
 
     def _build_training_windows(self, data: List[Dict]):
         """
-        Build (X, y) training arrays from a list of records using
-        rolling windows of `window_size` days.
-
+        Build (X, y) training arrays using ONLY valid input features and targets.
+        
         A window ending at day ``i`` forms one sample:
           - X: flattened input features of days [i-window_size+1 … i]
           - y: valid numeric target values of day ``i``
@@ -172,9 +197,11 @@ class XGBoostWeatherModel:
                 continue
 
             window = data[i - self.window_size + 1 : i + 1]
-            x_row = self._extract_input_row(window)
+            # Extract row using ONLY valid input features
+            x_row = self._extract_input_row(window, self.valid_input_features)
+            # Extract targets using ONLY valid target variables
             y_row = [
-                float(last_day.get(col)) if last_day.get(col) is not None else np.nan
+                float(last_day.get(col))
                 for col in self.valid_target_vars
             ]
 
@@ -194,8 +221,8 @@ class XGBoostWeatherModel:
         """
         Train the XGBoost multi-output model on historical data.
 
-        Detects valid target columns first if not already done.
-        Uses median imputation for missing input and target values.
+        Detects valid input features and target columns first if not already done.
+        Uses ONLY available variables — no imputation needed.
 
         Args:
             historical_data: List of historical weather record dicts.
@@ -203,9 +230,9 @@ class XGBoostWeatherModel:
         if not self.valid_target_vars:
             self._detect_valid_columns(historical_data)
 
-        if not self.valid_target_vars:
+        if not self.valid_target_vars or not self.valid_input_features:
             print(
-                "  ⚠️  XGBoost: No valid target columns found in historical data. "
+                "  ⚠️  XGBoost: Not enough valid columns for training. "
                 "Model cannot be trained."
             )
             return
@@ -223,12 +250,7 @@ class XGBoostWeatherModel:
             print("  ⚠️  XGBoost: No valid training windows could be built.")
             return
 
-        # Impute NaN with column median
-        self._x_imputer = SimpleImputer(strategy='median')
-        self._y_imputer = SimpleImputer(strategy='median')
-
-        X = self._x_imputer.fit_transform(X)
-        y = self._y_imputer.fit_transform(y)
+        print(f"  ℹ️  Training with {len(X)} windows (only valid features, no imputation)")
 
         xgb_base = XGBRegressor(
             n_estimators=100,
@@ -248,7 +270,8 @@ class XGBoostWeatherModel:
         print(
             f"  ✅ XGBoost trained: {len(X)} windows | "
             f"window_size={self.window_size} | "
-            f"targets={self.valid_target_vars}"
+            f"input_features={len(self.valid_input_features)} | "
+            f"targets={len(self.valid_target_vars)}"
         )
 
     # ================================================================
@@ -263,7 +286,7 @@ class XGBoostWeatherModel:
         by repeating the first record (fallback for very early days).
 
         Args:
-            window: List of dicts with at least temperature/precipitation fields.
+            window: List of dicts with valid input feature fields.
                     The last element is the day to predict; all others provide
                     temporal context.
 
@@ -281,9 +304,9 @@ class XGBoostWeatherModel:
         padded = padded[-self.window_size:]   # keep last window_size days
 
         x_row = np.array(
-            self._extract_input_row(padded), dtype=np.float64
+            self._extract_input_row(padded, self.valid_input_features), 
+            dtype=np.float64
         ).reshape(1, -1)
-        x_row = self._x_imputer.transform(x_row)
 
         raw_preds = self.model.predict(x_row)[0]  # shape (n_valid_targets,)
 
@@ -303,38 +326,38 @@ class XGBoostWeatherModel:
         Pre-build a feature matrix for all days [start, len(data)-1] at once
         using vectorized NumPy shifts.
 
-        Since XGBoost input features are ONLY temperatures and precipitation
-        (never the predicted targets), every window can be constructed upfront
-        without waiting for previous predictions — enabling a single batch call.
+        Uses ONLY valid input features detected during training.
+        Since input features are never the predicted targets, every window can
+        be constructed upfront without waiting for previous predictions — enabling
+        a single batch call. No NaN handling needed.
 
         Each row corresponds to one day's flattened window:
-            [day-ws+1_tmin, ..., day-ws+1_precip, ..., day_tmin, ..., day_precip]
+            [day-ws+1_feat0, ..., day-ws+1_featN, ..., day_feat0, ..., day_featN]
 
         Args:
-            data:  Full list of corrected records (temperature already set).
+            data:  Full list of corrected records (input features already set).
             start: First day index to predict (= seed_days).
 
         Returns:
-            X_batch: np.ndarray of shape (n_days_to_predict, n_features)
+            X_batch: np.ndarray of shape (n_days_to_predict, ws * n_valid_features)
         """
-        n_features = len(INPUT_FEATURES)
+        n_features = len(self.valid_input_features)
         ws = self.window_size
 
-        # Build the full (n, n_features) matrix of input values once
+        # Build the full (n, n_valid_features) matrix using ONLY valid input features
         full_matrix = np.array(
             [
-                [float(r.get(f)) if r.get(f) is not None else np.nan
-                 for f in INPUT_FEATURES]
+                [float(r.get(f)) for f in self.valid_input_features]
                 for r in data
             ],
             dtype=np.float64,
-        )  # shape: (n, n_features)
+        )  # shape: (n, n_valid_features)
 
         n = len(data)
         n_predict = n - start
 
         # For each day i in [start, n-1], the window is data[i-ws+1 : i+1].
-        # Flatten window into (ws * n_features) using stride tricks / stacking.
+        # Flatten window into (ws * n_valid_features) using vectorized shifts.
         X_rows = np.empty((n_predict, ws * n_features), dtype=np.float64)
 
         for offset in range(ws):
@@ -368,9 +391,9 @@ class XGBoostWeatherModel:
             record['humidity_mean'] = int(round(max(0.0, min(100.0, record['humidity_mean']))))
 
         if record.get('pressure_min') is not None:
-            record['pressure_min'] = round(max(850.0, min(1100.0, record['pressure_min'])), 1)
+            record['pressure_min'] = round(max(300.0, min(1100.0, record['pressure_min'])), 1)
         if record.get('pressure_max') is not None:
-            record['pressure_max'] = round(max(850.0, min(1100.0, record['pressure_max'])), 1)
+            record['pressure_max'] = round(max(300.0, min(1100.0, record['pressure_max'])), 1)
 
         if record.get('wind_speed_mean') is not None:
             record['wind_speed_mean'] = round(max(0.0, record['wind_speed_mean']), 1)
@@ -438,6 +461,20 @@ class XGBoostWeatherModel:
         # -- 1. Detect valid columns ----------------------------------
         self._detect_valid_columns(historical_data)
 
+        if not self.valid_target_vars:
+            print("  ⚠️  XGBoost: No target columns available — falling back to KNN (numeric vars only)")
+            return adjusted_data
+
+        # -- 2. Train XGBoost -----------------------------------------
+        print(
+            f"🔄 Training XGBoost model "
+            f"(window_size={self.window_size})..."
+        )
+        self.fit(historical_data)
+
+        # ================================================================
+        # Use of KNN fallback for seeding and training failures
+        # ================================================================
         # Helper: copy only numeric target vars from src into dst
         def _copy_numeric(dst: dict, src: dict) -> None:
             for col in self.valid_target_vars:
@@ -451,18 +488,6 @@ class XGBoostWeatherModel:
             for i, knn_rec in enumerate(knn_result):
                 _copy_numeric(out[i], knn_rec)
             return out
-
-        if not self.valid_target_vars:
-            print("  ⚠️  XGBoost: No target columns available — falling back to KNN (numeric vars only)")
-            return _knn_numeric_fallback(adjusted_data)
-
-        # -- 2. Train XGBoost -----------------------------------------
-        print(
-            f"🔄 Training XGBoost model "
-            f"(window_size={self.window_size}, "
-            f"targets={len(self.valid_target_vars)})..."
-        )
-        self.fit(historical_data)
 
         if not self._is_fitted:
             print("  ⚠️  XGBoost: Training failed — falling back to KNN (numeric vars only)")
@@ -498,9 +523,9 @@ class XGBoostWeatherModel:
             f"(days {seed_days}–{n - 1})..."
         )
 
-        # Build the full feature matrix for all days at once (vectorized)
+        # Build the full feature matrix for all days at once (vectorized, no imputation)
         X_batch = self._build_prediction_batch(corrected, seed_days)
-        X_batch = self._x_imputer.transform(X_batch)  # shape: (remaining, n_features*ws)
+        # shape: (remaining, n_valid_features * window_size)
 
         # Single model call for all days — no Python loop overhead
         raw_preds = self.model.predict(X_batch)  # shape: (remaining, n_valid_targets)
