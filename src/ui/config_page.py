@@ -176,6 +176,17 @@ def _validate_predictions(df: pd.DataFrame):
     
     if df['Year'].isna().any():
         raise ValueError("Year column cannot contain empty values")
+    
+    # Check for missing values in Minimum, Mean, Maximum columns
+    value_columns = ['Minimum', 'Mean', 'Maximum']
+    for col in value_columns:
+        if df[col].isna().any():
+            missing_rows = df[df[col].isna()]
+            raise ValueError(
+                f"Missing values in '{col}' column. "
+                f"Found empty cells in rows with Year={missing_rows['Year'].iloc[0]}, "
+                f"Month={missing_rows['Month'].iloc[0]}, Variable={missing_rows['Variable'].iloc[0]}"
+            )
 
 
 def render_config_page(config):
