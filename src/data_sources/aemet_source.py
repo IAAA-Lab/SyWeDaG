@@ -400,33 +400,37 @@ class AemetWeatherSource(BaseWeatherSource):
             # 2. Interpolate missing values (NULLs) within existing days
             self._interpolate_missing_values_in_period(complete_period_data)
             
-            # 3. Store daily records directly (without hourly interpolation)
+            # 3. Store daily records directly (without hourly interpolation - already done in step 2)
             for record_index, daily_record in enumerate(complete_period_data):
                 try:
                     fecha = daily_record.get('fecha', '')
                     tmin = self._parse_float(daily_record.get('tmin'))
                     tmax = self._parse_float(daily_record.get('tmax'))
                     tmed = self._parse_float(daily_record.get('tmed'))
-                    hour_tmin = self._process_hour_field(daily_record.get('horatmin'), 'horatmin', complete_period_data, record_index)
-                    hour_tmax = self._process_hour_field(daily_record.get('horatmax'), 'horatmax', complete_period_data, record_index)
+                    # Hours are already interpolated in step 2
+                    hour_tmin = daily_record.get('horatmin')
+                    hour_tmax = daily_record.get('horatmax')
                     
                     prec = self._parse_float(daily_record.get('prec'))
                     
                     wind_speed_mean = self._parse_float(daily_record.get('velmedia'))
                     wind_speed_max = self._parse_float(daily_record.get('racha'))
+                    # Wind direction is already interpolated in step 2
                     wind_dir = self._convert_wind_direction(daily_record.get('dir'))
-                    hour_wind_max = self._process_hour_field(daily_record.get('horaracha'), 'horaracha', complete_period_data, record_index)
+                    hour_wind_max = daily_record.get('horaracha')
                     
                     hr_min = self._parse_int(daily_record.get('hrMin'))
                     hr_max = self._parse_int(daily_record.get('hrMax'))
                     hr_med = self._parse_int(daily_record.get('hrMedia'))
-                    hour_hrmin = self._process_hour_field(daily_record.get('horaHrMin'), 'horaHrMin', complete_period_data, record_index)
-                    hour_hrmax = self._process_hour_field(daily_record.get('horaHrMax'), 'horaHrMax', complete_period_data, record_index)
+                    # Hours are already interpolated in step 2
+                    hour_hrmin = daily_record.get('horaHrMin')
+                    hour_hrmax = daily_record.get('horaHrMax')
                     
                     pres_min = self._parse_float(daily_record.get('presMin'))
                     pres_max = self._parse_float(daily_record.get('presMax'))
-                    hour_presmin = self._process_hour_field(daily_record.get('horaPresMin'), 'horaPresMin', complete_period_data, record_index)
-                    hour_presmax = self._process_hour_field(daily_record.get('horaPresMax'), 'horaPresMax', complete_period_data, record_index)
+                    # Hours are already interpolated in step 2
+                    hour_presmin = daily_record.get('horaPresMin')
+                    hour_presmax = daily_record.get('horaPresMax')
                     
                     record = DailyWeatherRecord(
                         date=fecha,
@@ -994,6 +998,8 @@ class AemetWeatherSource(BaseWeatherSource):
         Si solo hay día posterior, extrapola hacia atrás usando ese día.
         Si no hay días con valores cercanos, el NULL se mantiene.
         
+        También interpola los campos de horas y dirección de viento.
+        
         Args:
             daily_records: Lista de registros diarios (modificada in-place)
         """
@@ -1016,7 +1022,19 @@ class AemetWeatherSource(BaseWeatherSource):
             'presmax': ['presmax', 'presMax']
         }
         
-        # Detectar qué claves reales existen en los registros
+        # Map de variables string (horas y dirección de viento) que pueden ser interpoladas
+        string_vars_keys = {
+            'horatmin': ['horatmin'],
+            'horatmax': ['horatmax'],
+            'horaracha': ['horaracha'],
+            'horaHrMin': ['horaHrMin', 'horahrmin'],
+            'horaHrMax': ['horaHrMax', 'horahrmax'],
+            'horaPresMin': ['horaPresMin', 'horapresmin'],
+            'horaPresMax': ['horaPresMax', 'horapresmax'],
+            'dir': ['dir']
+        }
+        
+        # Detectar qué claves reales existen en los registros (variables numéricas)
         actual_keys_used = {}
         for var, possible_keys in numeric_vars_keys.items():
             actual_key = None
@@ -1029,6 +1047,20 @@ class AemetWeatherSource(BaseWeatherSource):
                     break
             if actual_key:
                 actual_keys_used[var] = actual_key
+        
+        # Detectar qué claves reales existen para variables string
+        actual_string_keys_used = {}
+        for var, possible_keys in string_vars_keys.items():
+            actual_key = None
+            for record in daily_records:
+                for key in possible_keys:
+                    if key in record:
+                        actual_key = key
+                        break
+                if actual_key:
+                    break
+            if actual_key:
+                actual_string_keys_used[var] = actual_key
         
         # Detectar variables que NUNCA se devuelven (siempre NULL)
         never_present = set()
@@ -1045,7 +1077,7 @@ class AemetWeatherSource(BaseWeatherSource):
         if never_present:
             print(f"⚠️ Variables without data in period (not interpolating): {', '.join(sorted(never_present))}")
         
-        # Para cada variable que SÍ se devuelve, interpolar sus NULLs
+        # Para cada variable numérica que SÍ se devuelve, interpolar sus NULLs
         for var, actual_key in actual_keys_used.items():
             if var in never_present:
                 continue  # No interpolar variables que nunca se devuelven
@@ -1085,4 +1117,37 @@ class AemetWeatherSource(BaseWeatherSource):
                     elif next_val is not None:
                         # Extrapolar hacia atrás usando el valor posterior
                         daily_records[i][actual_key] = str(next_val)
+                    # Si no hay prev ni next, el NULL se mantiene
+        
+        # Para cada variable string (horas, dirección de viento), interpolar sus NULLs
+        for var, actual_key in actual_string_keys_used.items():
+            # Buscar NULLs o valores inválidos en esta variable
+            for i in range(len(daily_records)):
+                val = daily_records[i].get(actual_key)
+                is_invalid = val is None or val == '' or str(val).lower() in ['varias', 'multiple', 'n/a', 'nd', 'ind', 'vv']
+                
+                if is_invalid:  # Hay un NULL, vacío o valor especial
+                    # Buscar valores anteriores y posteriores
+                    prev_val = None
+                    next_val = None
+                    
+                    # Buscar hacia atrás para encontrar el valor anterior más cercano
+                    for j in range(i - 1, -1, -1):
+                        prev_candidate = daily_records[j].get(actual_key)
+                        if prev_candidate and prev_candidate != '' and str(prev_candidate).lower() not in ['varias', 'multiple', 'n/a', 'nd', 'ind', 'vv']:
+                            prev_val = prev_candidate
+                            break
+                    
+                    # Buscar hacia adelante para encontrar el valor posterior más cercano
+                    for j in range(i + 1, len(daily_records)):
+                        next_candidate = daily_records[j].get(actual_key)
+                        if next_candidate and next_candidate != '' and str(next_candidate).lower() not in ['varias', 'multiple', 'n/a', 'nd', 'ind', 'vv']:
+                            next_val = next_candidate
+                            break
+                    
+                    # Usar el valor que sea válido (preferir anterior si existe)
+                    if prev_val is not None:
+                        daily_records[i][actual_key] = prev_val
+                    elif next_val is not None:
+                        daily_records[i][actual_key] = next_val
                     # Si no hay prev ni next, el NULL se mantiene
