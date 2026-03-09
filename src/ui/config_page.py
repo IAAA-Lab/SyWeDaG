@@ -187,6 +187,17 @@ def _validate_predictions(df: pd.DataFrame):
                 f"Found empty cells in rows with Year={missing_rows['Year'].iloc[0]}, "
                 f"Month={missing_rows['Month'].iloc[0]}, Variable={missing_rows['Variable'].iloc[0]}"
             )
+    
+    # Check that Minimum <= Mean <= Maximum for each row
+    invalid_rows = df[(df['Minimum'] > df['Mean']) | (df['Mean'] > df['Maximum'])]
+    if not invalid_rows.empty:
+        first_invalid = invalid_rows.iloc[0]
+        raise ValueError(
+            f"Invalid value ranges for Year={first_invalid['Year']}, Month={first_invalid['Month']}, "
+            f"Variable={first_invalid['Variable']}: "
+            f"Minimum ({first_invalid['Minimum']}) must be <= Mean ({first_invalid['Mean']}) "
+            f"must be <= Maximum ({first_invalid['Maximum']})"
+        )
 
 
 def render_config_page(config):
