@@ -109,6 +109,12 @@ def apply_results_styles():
         color: black !important;
     }
     
+    /* Warning text color - make it more visible */
+    .st-emotion-cache-2fgyt4.eg78z5t0 p {
+        color: #856404 !important;
+        font-weight: 600 !important;
+    }
+    
     /* Success message styling */
     .stSuccess {
         background-color: #d4edda !important;

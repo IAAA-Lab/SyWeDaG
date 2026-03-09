@@ -169,17 +169,24 @@ def render_results_page():
             plot_df = df_filtered[['datetime', param_key]].dropna(subset=[param_key])
             chart_note = "Hourly data"
         
-        st.markdown(
-            f"<p class='chart-info'>"
-            f"{param_cfg['label']} · {chart_note} · {len(plot_df):,} points</p>",
-            unsafe_allow_html=True
-        )
-        
-        st.line_chart(
-            plot_df.rename(columns={param_key: param_cfg['label']}).set_index('datetime'),
-            color=param_cfg['color'],
-            width='stretch',
-        )
+        # Verificar si hay datos válidos para la variable seleccionada
+        if plot_df.empty:
+            st.warning(
+                f"⚠️ No data available for {param_cfg['label'].lower()} in the selected period. "
+                f"It was not possible to collect data of this type in the selected area."
+            )
+        else:
+            st.markdown(
+                f"<p class='chart-info'>"
+                f"{param_cfg['label']} · {chart_note} · {len(plot_df):,} points</p>",
+                unsafe_allow_html=True
+            )
+            
+            st.line_chart(
+                plot_df.rename(columns={param_key: param_cfg['label']}).set_index('datetime'),
+                color=param_cfg['color'],
+                width='stretch',
+            )
     
     # ── End of results ──────────────────────────────────────────────────
     st.markdown("<div class='spacer-sm'></div>", unsafe_allow_html=True)

@@ -401,39 +401,32 @@ class AemetWeatherSource(BaseWeatherSource):
             self._interpolate_missing_values_in_period(complete_period_data)
             
             # 3. Store daily records directly (without hourly interpolation)
-            for daily_record in complete_period_data:
+            for record_index, daily_record in enumerate(complete_period_data):
                 try:
                     fecha = daily_record.get('fecha', '')
                     tmin = self._parse_float(daily_record.get('tmin'))
                     tmax = self._parse_float(daily_record.get('tmax'))
                     tmed = self._parse_float(daily_record.get('tmed'))
-                    hour_tmin = self._parse_time(daily_record.get('horatmin'), 'horatmin')
-                    hour_tmax = self._parse_time(daily_record.get('horatmax'), 'horatmax')
-                    
-                    if tmed is None and tmin is not None and tmax is not None:
-                        tmed = (tmin + tmax) / 2
+                    hour_tmin = self._process_hour_field(daily_record.get('horatmin'), 'horatmin', complete_period_data, record_index)
+                    hour_tmax = self._process_hour_field(daily_record.get('horatmax'), 'horatmax', complete_period_data, record_index)
                     
                     prec = self._parse_float(daily_record.get('prec'))
-                    if prec is None:
-                        prec = 0.0
                     
                     wind_speed_mean = self._parse_float(daily_record.get('velmedia'))
                     wind_speed_max = self._parse_float(daily_record.get('racha'))
                     wind_dir = self._convert_wind_direction(daily_record.get('dir'))
-                    hour_wind_max = self._parse_time(daily_record.get('horaracha'), 'horaracha')
+                    hour_wind_max = self._process_hour_field(daily_record.get('horaracha'), 'horaracha', complete_period_data, record_index)
                     
                     hr_min = self._parse_int(daily_record.get('hrMin'))
                     hr_max = self._parse_int(daily_record.get('hrMax'))
                     hr_med = self._parse_int(daily_record.get('hrMedia'))
-                    hour_hrmin = self._parse_time(daily_record.get('horahrmin'), 'horahrmin')
-                    hour_hrmax = self._parse_time(daily_record.get('horahrmax'), 'horahrmax')
-                    if hr_med is None and hr_min is not None and hr_max is not None:
-                        hr_med = (hr_min + hr_max) // 2
+                    hour_hrmin = self._process_hour_field(daily_record.get('horaHrMin'), 'horaHrMin', complete_period_data, record_index)
+                    hour_hrmax = self._process_hour_field(daily_record.get('horaHrMax'), 'horaHrMax', complete_period_data, record_index)
                     
                     pres_min = self._parse_float(daily_record.get('presMin'))
                     pres_max = self._parse_float(daily_record.get('presMax'))
-                    hour_presmin = self._parse_time(daily_record.get('horaPresMin'), 'horaPresMin')
-                    hour_presmax = self._parse_time(daily_record.get('horaPresMax'), 'horaPresMax')
+                    hour_presmin = self._process_hour_field(daily_record.get('horaPresMin'), 'horaPresMin', complete_period_data, record_index)
+                    hour_presmax = self._process_hour_field(daily_record.get('horaPresMax'), 'horaPresMax', complete_period_data, record_index)
                     
                     record = DailyWeatherRecord(
                         date=fecha,
@@ -445,7 +438,7 @@ class AemetWeatherSource(BaseWeatherSource):
                         precipitation=prec,
                         wind_speed_mean=wind_speed_mean,
                         wind_speed_max=wind_speed_max,
-                        wind_direction=wind_dir if wind_dir else None,
+                        wind_direction=wind_dir,
                         hour_wind_max=hour_wind_max,
                         humidity_min=hr_min,
                         humidity_max=hr_max,
@@ -712,6 +705,72 @@ class AemetWeatherSource(BaseWeatherSource):
         except (ValueError, IndexError):
             return time_str
 
+    def _get_hour_from_nearest_day(self, daily_records: List[dict], current_index: int, hour_field: str) -> Optional[str]:
+        """
+        Get hour from the nearest day (previous or following) for a specific hour field.
+        
+        First searches backwards from the current index to find a valid hour value
+        (not None and not 'Varias'/'Multiple'). If not found, searches forwards.
+        
+        Args:
+            daily_records: Complete list of daily records
+            current_index: Index of current record
+            hour_field: Name of the hour field (e.g., 'horatmin', 'horatmax')
+            
+        Returns:
+            Hour string in format 'HH:MM' or None if no valid hour found
+        """
+        # Search backwards from current position
+        for prev_index in range(current_index - 1, -1, -1):
+            prev_record = daily_records[prev_index]
+            hour_value = prev_record.get(hour_field)
+            
+            # Check if value exists and is not 'Varias'/'Multiple'
+            if hour_value and hour_value.lower() not in ['varias', 'multiple', '', 'n/a', 'nd']:
+                return hour_value
+        
+        # If not found backwards, search forwards from current position
+        for next_index in range(current_index + 1, len(daily_records)):
+            next_record = daily_records[next_index]
+            hour_value = next_record.get(hour_field)
+            
+            # Check if value exists and is not 'Varias'/'Multiple'
+            if hour_value and hour_value.lower() not in ['varias', 'multiple', '', 'n/a', 'nd']:
+                return hour_value
+        
+        return None
+
+    def _process_hour_field(self, hour_raw: str, hour_type: str, daily_records: List[dict] = None, current_index: int = None) -> Optional[str]:
+        """
+        Process hour field with intelligent logic:
+        - If None/empty → search for value in nearest neighbors (backward first, then forward)
+        - If valid format (e.g., '03:36') → return as is
+        - If 'Varias'/'Multiple' → search for value in nearest neighbors
+        - If no valid value found anywhere → return None
+        
+        Args:
+            hour_raw: Raw hour value from AEMET data
+            hour_type: Type of hour field for context
+            daily_records: Complete list of daily records (for interpolation)
+            current_index: Current index in daily_records (for interpolation)
+            
+        Returns:
+            Hour string 'HH:MM' or None
+        """
+        # If it's a valid time format, return as is
+        if hour_raw and hour_raw != '':
+            hour_str_lower = str(hour_raw).lower().strip()
+            if hour_str_lower not in ['varias', 'multiple', 'n/a', 'nd', 'ind', 'vv']:
+                return hour_raw
+        
+        # If None/empty or 'Varias'/'Multiple', search in neighbors
+        if daily_records is not None and current_index is not None:
+            nearest_hour = self._get_hour_from_nearest_day(daily_records, current_index, hour_type)
+            if nearest_hour:
+                return nearest_hour
+        
+        return None
+
     def _fill_missing_days(self, daily_records: List[dict]) -> List[dict]:
         """
         Fill missing days by interpolating between available days or extrapolating at extremes.
@@ -824,6 +883,11 @@ class AemetWeatherSource(BaseWeatherSource):
         """
         Linearly interpolate a daily record between two known records.
         
+        For each variable:
+        - If both records have values: returns the average
+        - If only one has a value: returns that value
+        - If neither has a value: returns None
+        
         Args:
             prev_record: Previous day record
             next_record: Next day record
@@ -832,37 +896,90 @@ class AemetWeatherSource(BaseWeatherSource):
         Returns:
             Interpolated daily record
         """
-        def interpolate_value(key, default=0):
-            prev_val = self._parse_float(prev_record.get(key)) or default
-            next_val = self._parse_float(next_record.get(key)) or default
-            return (prev_val + next_val) / 2
+        def interpolate_value(key, parse_as='float'):
+            """
+            Interpolate a value between two records.
+            If both have values: average them.
+            If one has value: use it.
+            If neither has value: return None.
+            """
+            prev_val_raw = prev_record.get(key)
+            next_val_raw = next_record.get(key)
+            
+            if parse_as == 'float':
+                prev_val = self._parse_float(prev_val_raw)
+                next_val = self._parse_float(next_val_raw)
+                
+                if prev_val is not None and next_val is not None:
+                    return str(round((prev_val + next_val) / 2, 1))
+                elif prev_val is not None:
+                    return str(round(prev_val, 1))
+                elif next_val is not None:
+                    return str(round(next_val, 1))
+                else:
+                    return None
+            
+            elif parse_as == 'int':
+                prev_val = self._parse_int(prev_val_raw)
+                next_val = self._parse_int(next_val_raw)
+                
+                if prev_val is not None and next_val is not None:
+                    return str(int((prev_val + next_val) / 2))
+                elif prev_val is not None:
+                    return str(prev_val)
+                elif next_val is not None:
+                    return str(next_val)
+                else:
+                    return None
+            
+            else:  # 'string' - take from prev if exists, else from next
+                if prev_val_raw is not None and prev_val_raw != '':
+                    return prev_val_raw
+                elif next_val_raw is not None and next_val_raw != '':
+                    return next_val_raw
+                else:
+                    return None
         
-        return {
+        interpolated_record = {
             'fecha': target_date,
-            'indicativo': prev_record.get('indicativo'),
-            'nombre': prev_record.get('nombre'),
-            'provincia': prev_record.get('provincia'),
-            'altitud': prev_record.get('altitud'),
-            'tmed': str(interpolate_value('tmed')),
-            'tmin': str(interpolate_value('tmin')),
-            'tmax': str(interpolate_value('tmax')),
-            'horatmin': prev_record.get('horatmin', '06:00'),
-            'horatmax': prev_record.get('horatmax', '14:00'),
-            'prec': str(interpolate_value('prec')),
-            'dir': prev_record.get('dir', '0'),
-            'velmedia': str(interpolate_value('velmedia')),
-            'racha': str(interpolate_value('racha')),
-            'horaracha': prev_record.get('horaracha', '12:00'),
-            'hrmedia': str(int(interpolate_value('hrmedia', 70))),
-            'hrmin': str(int(interpolate_value('hrmin', 50))),
-            'hrmax': str(int(interpolate_value('hrmax', 90))),
-            'horahrmin': prev_record.get('horahrmin', '14:00'),
-            'horahrmax': prev_record.get('horahrmax', '06:00'),
-            'presmin': str(interpolate_value('presmin', 1013)),
-            'presmax': str(interpolate_value('presmax', 1013)),
-            'horapresmin': prev_record.get('horapresmin', '12'),
-            'horapresmax': prev_record.get('horapresmax', '00')
+            'indicativo': prev_record.get('indicativo') or next_record.get('indicativo'),
+            'nombre': prev_record.get('nombre') or next_record.get('nombre'),
+            'provincia': prev_record.get('provincia') or next_record.get('provincia'),
+            'altitud': prev_record.get('altitud') or next_record.get('altitud'),
         }
+        
+        # Temperature
+        interpolated_record['tmed'] = interpolate_value('tmed', 'float')
+        interpolated_record['tmin'] = interpolate_value('tmin', 'float')
+        interpolated_record['tmax'] = interpolate_value('tmax', 'float')
+        
+        # Hour of temperature extremes
+        interpolated_record['horatmin'] = interpolate_value('horatmin', 'string')
+        interpolated_record['horatmax'] = interpolate_value('horatmax', 'string')
+        
+        # Precipitation
+        interpolated_record['prec'] = interpolate_value('prec', 'float')
+        
+        # Wind
+        interpolated_record['dir'] = interpolate_value('dir', 'string')
+        interpolated_record['velmedia'] = interpolate_value('velmedia', 'float')
+        interpolated_record['racha'] = interpolate_value('racha', 'float')
+        interpolated_record['horaracha'] = interpolate_value('horaracha', 'string')
+        
+        # Humidity
+        interpolated_record['hrmedia'] = interpolate_value('hrmedia', 'int')
+        interpolated_record['hrmin'] = interpolate_value('hrmin', 'int')
+        interpolated_record['hrmax'] = interpolate_value('hrmax', 'int')
+        interpolated_record['horahrmin'] = interpolate_value('horahrmin', 'string')
+        interpolated_record['horahrmax'] = interpolate_value('horahrmax', 'string')
+        
+        # Pressure
+        interpolated_record['presmin'] = interpolate_value('presmin', 'float')
+        interpolated_record['presmax'] = interpolate_value('presmax', 'float')
+        interpolated_record['horapresmin'] = interpolate_value('horapresmin', 'string')
+        interpolated_record['horapresmax'] = interpolate_value('horapresmax', 'string')
+        
+        return interpolated_record
 
     def _interpolate_missing_values_in_period(self, daily_records: List[dict]) -> None:
         """

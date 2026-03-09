@@ -585,20 +585,26 @@ class SyntheticWeatherGenerator:
             wind_dir = daily_rec.get('wind_direction')
             
             # Humedad
-            hr_min = daily_rec.get('humidity_min') or 50
-            hr_max = daily_rec.get('humidity_max') or 80
+            hr_min = daily_rec.get('humidity_min')
+            hr_max = daily_rec.get('humidity_max')
             hr_mean = daily_rec.get('humidity_mean')
-            hour_hrmin = self._parse_hour(daily_rec.get('hour_hrmin'))
-            hour_hrmax = self._parse_hour(daily_rec.get('hour_hrmax'))
-            hourly_humidity = self._interpolate_hourly_humidity(hr_min, hr_max, hr_mean, hour_hrmin, hour_hrmax)
-            
+            if hr_min is not None and hr_max is not None:
+                hour_hrmin = self._parse_hour(daily_rec.get('hour_hrmin'))
+                hour_hrmax = self._parse_hour(daily_rec.get('hour_hrmax'))
+                hourly_humidity = self._interpolate_hourly_humidity(hr_min, hr_max, hr_mean, hour_hrmin, hour_hrmax)
+            else:
+                hourly_humidity = [None] * 24
+
             # Presión
-            pres_min = daily_rec.get('pressure_min') or 1013.25
-            pres_max = daily_rec.get('pressure_max') or 1013.25
-            hour_presmin = self._parse_hour(daily_rec.get('hour_presmin'))
-            hour_presmax = self._parse_hour(daily_rec.get('hour_presmax'))
-            hourly_pressure = self._interpolate_pressure(pres_min, pres_max, hour_presmin, hour_presmax)
-            
+            pres_min = daily_rec.get('pressure_min')
+            pres_max = daily_rec.get('pressure_max')
+            if pres_min is not None and pres_max is not None:
+                hour_presmin = self._parse_hour(daily_rec.get('hour_presmin'))
+                hour_presmax = self._parse_hour(daily_rec.get('hour_presmax'))
+                hourly_pressure = self._interpolate_pressure(pres_min, pres_max, hour_presmin, hour_presmax)
+            else:
+                hourly_pressure = [None] * 24
+
             # Crear 24 registros horarios
             for hour in range(24):
                 datetime_iso = f"{fecha}T{hour:02d}:00:00Z"
@@ -829,8 +835,10 @@ class SyntheticWeatherGenerator:
                                if r.get('pressure') is not None]
             if hourly_pressures:
                 mean_hourly_pres = np.mean(hourly_pressures)
-                daily_pres_min = daily_rec.get('pressure_min') or 1013.25
-                daily_pres_max = daily_rec.get('pressure_max') or 1013.25
+                daily_pres_min = daily_rec.get('pressure_min')
+                daily_pres_max = daily_rec.get('pressure_max')
+                if daily_pres_min is None or daily_pres_max is None:
+                    continue
                 daily_pres_mean = (daily_pres_min + daily_pres_max) / 2
                 
                 diff_pres = abs(mean_hourly_pres - daily_pres_mean)
