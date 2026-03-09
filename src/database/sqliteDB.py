@@ -56,7 +56,7 @@ def createTables():
             
             wind_speed_mean REAL,
             wind_speed_max REAL,
-            wind_direction TEXT CHECK(wind_direction IS NULL OR wind_direction IN ('N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO')),
+            wind_direction TEXT CHECK(wind_direction IS NULL OR wind_direction IN ('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW')),
             hour_wind_max TEXT,
             
             humidity_min INTEGER,
@@ -144,7 +144,7 @@ def createTables():
             
             wind_speed_mean REAL,
             wind_speed_max REAL,
-            wind_direction TEXT CHECK(wind_direction IS NULL OR wind_direction IN ('N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO')),
+            wind_direction TEXT CHECK(wind_direction IS NULL OR wind_direction IN ('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW')),
             
             humidity_min INTEGER,
             humidity_max INTEGER,
@@ -168,7 +168,7 @@ def createTables():
             temperature REAL,
             precipitation REAL,
             wind_speed REAL,
-            wind_direction TEXT CHECK(wind_direction IN ('N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO')),
+            wind_direction TEXT CHECK(wind_direction IN ('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW')),
             humidity INTEGER,
             pressure REAL,
             

@@ -603,11 +603,11 @@ class AemetWeatherSource(BaseWeatherSource):
             elif value in [16, 17, 18, 19]:
                 return 'S'
             elif value in [20, 21, 22, 23, 24]:
-                return 'SO'
+                return 'SW'
             elif value in [25, 26, 27, 28]:
-                return 'O'
+                return 'W'
             elif value in [29, 30, 31, 32, 33]:
-                return 'NO'
+                return 'NW'
             else:
                 return 'N'
                 
