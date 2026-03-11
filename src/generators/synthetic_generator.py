@@ -322,34 +322,35 @@ class SyntheticWeatherGenerator:
             new_tmin = tmin + diff_tmin
             
             # Ajustar Tmax a sus límites
+            # TODO Eliminar comentado
             if tmax_max is not None and new_tmax > tmax_max:
-                excess = new_tmax - tmax_max
+                #excess = new_tmax - tmax_max
                 new_tmax = tmax_max
-                new_tmin -= excess
-                if tmin_min is not None and new_tmin < tmin_min:
-                    new_tmin = tmin_min
+                #new_tmin -= excess
+                #if tmin_min is not None and new_tmin < tmin_min:
+                #    new_tmin = tmin_min
             
             if tmax_min is not None and new_tmax < tmax_min:
-                deficit = tmax_min - new_tmax
+                #deficit = tmax_min - new_tmax
                 new_tmax = tmax_min
-                new_tmin += deficit
-                if tmin_max is not None and new_tmin > tmin_max:
-                    new_tmin = tmin_max
+                #new_tmin += deficit
+                #if tmin_max is not None and new_tmin > tmin_max:
+                #    new_tmin = tmin_max
             
             # Ajustar Tmin a sus límites
             if tmin_max is not None and new_tmin > tmin_max:
-                excess = new_tmin - tmin_max
+                #excess = new_tmin - tmin_max
                 new_tmin = tmin_max
-                new_tmax += excess
-                if tmax_max is not None and new_tmax > tmax_max:
-                    new_tmax = tmax_max
+                #new_tmax += excess
+                #if tmax_max is not None and new_tmax > tmax_max:
+                #    new_tmax = tmax_max
             
             if tmin_min is not None and new_tmin < tmin_min:
-                deficit = tmin_min - new_tmin
+                #deficit = tmin_min - new_tmin
                 new_tmin = tmin_min
-                new_tmax -= deficit
-                if tmax_min is not None and new_tmax < tmax_min:
-                    new_tmax = tmax_min
+                #new_tmax -= deficit
+                #if tmax_min is not None and new_tmax < tmax_min:
+                #    new_tmax = tmax_min
             
             # Ajustar Tmean a sus límites
             if tmean_max is not None and new_tmean > tmean_max:
