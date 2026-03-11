@@ -124,7 +124,12 @@ class SyntheticWeatherGenerator:
             if month_day_key in records_by_month_day:
                 available_years = sorted(records_by_month_day[month_day_key].keys())
                 if available_years:
-                    year_index = random.randint(0, len(available_years) - 1)
+                    # TODO dejar aleatorio
+                    #year_index = random.randint(0, len(available_years) - 1)
+                    # CICLO: usa modulo para recorrer los años disponibles de forma determinista
+                    # Sin esto (con random.randint()), los datos se distribuían aleatoriamente,
+                    # ahora se cicla por año histórico para facilitar debugging
+                    year_index = (occurrence_count - 1) % len(available_years)
                     selected_year = available_years[year_index]
                     source_record = records_by_month_day[month_day_key][selected_year]
             
@@ -133,13 +138,21 @@ class SyntheticWeatherGenerator:
                 alt_key = "02-28"
                 if alt_key in records_by_month_day:
                     available_years = sorted(records_by_month_day[alt_key].keys())
-                    year_index = random.randint(0, len(available_years) - 1)
+                    # TODO dejar aleatorio
+                    #year_index = random.randint(0, len(available_years) - 1)
+                    # CICLO: usa modulo para recorrer los años disponibles de forma determinista
+                    # Sin esto (con random.randint()), los datos se distribuían aleatoriamente,
+                    # ahora se cicla por año histórico para facilitar debugging
+                    year_index = (occurrence_count - 1) % len(available_years)
                     selected_year = available_years[year_index]
                     source_record = records_by_month_day[alt_key][selected_year]
             
             # Fallback: usar selección aleatoria
             if source_record is None:
-                idx = random.randint(0, len(self.historical_data) - 1)
+                # TODO dejar aleatorio
+                #idx = random.randint(0, len(self.historical_data) - 1)
+                # CICLO: en lugar de random.randint(), usa modulo para ciclar determinísticamente
+                idx = (occurrence_count - 1) % len(self.historical_data)
                 source_record = self.historical_data[idx]
             
             # Copiar registro con nueva fecha
