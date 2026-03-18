@@ -117,7 +117,7 @@ def createTables():
             year INTEGER NOT NULL,
             month INTEGER NOT NULL,
             variable TEXT NOT NULL CHECK(variable IN (
-                'precipitation', 'temperature_max', 'temperature_mean', 'temperature_min'
+                'precipitation', 'temperature_max', 'temperature_mean', 'temperature_min', 'number_days_rain'
             )),
             minimum REAL,
             mean REAL,

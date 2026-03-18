@@ -166,7 +166,7 @@ def _validate_predictions(df: pd.DataFrame):
     if missing:
         raise ValueError(f"Missing columns: {missing}")
     
-    valid_variables = {'precipitation', 'temperature_max', 'temperature_mean', 'temperature_min'}
+    valid_variables = {'precipitation', 'temperature_max', 'temperature_mean', 'temperature_min','number_days_rain'}
     invalid = set(df['Variable'].unique()) - valid_variables
     if invalid:
         raise ValueError(f"Invalid variables: {invalid}. Valid: {valid_variables}")
