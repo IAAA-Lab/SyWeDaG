@@ -9,6 +9,7 @@ import pandas as pd
 from ui.styles.config_styles import apply_config_styles
 from data_sources.aemet_source import AemetWeatherSource
 from generators.synthetic_generator import SyntheticWeatherGenerator
+from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
 from utils.system_utils import get_resource_path
 
 def create_template_example_dataframe():
@@ -138,6 +139,61 @@ def get_mandatory_weather_data(latitude: float, longitude: float, start_year: in
             start_year=start_year,
             end_year=end_year
         )
+
+        if nearest_station is not None:
+            stations_to_insert = [
+                (
+                    nearest_station.source,
+                    nearest_station.id_station,
+                    nearest_station.name,
+                    nearest_station.region,
+                    nearest_station.latitude,
+                    nearest_station.longitude,
+                    nearest_station.height,
+                )
+            ]
+
+            try:
+                rows_inserted = insert_weather_stations(stations_to_insert)
+                print(f"✅ Inserted {rows_inserted} weather station(s) in DB")
+            except Exception as e:
+                print(f"⚠️ Error inserting stations in DB: {e}")
+
+        if nearest_station is not None and weather_data is not None and weather_data.daily_records:
+            historical_tuples = [
+                (
+                    rec.date,
+                    nearest_station.source,
+                    nearest_station.id_station,
+                    rec.temperature_min,
+                    rec.temperature_max,
+                    rec.temperature_mean,
+                    rec.hour_tmin,
+                    rec.hour_tmax,
+                    rec.precipitation,
+                    rec.wind_speed_mean,
+                    rec.wind_speed_max,
+                    rec.wind_direction,
+                    rec.hour_wind_max,
+                    rec.humidity_min,
+                    rec.humidity_max,
+                    rec.humidity_mean,
+                    rec.hour_hrmin,
+                    rec.hour_hrmax,
+                    rec.pressure_min,
+                    rec.pressure_max,
+                    rec.hour_presmin,
+                    rec.hour_presmax,
+                )
+                for rec in weather_data.daily_records
+            ]
+
+            try:
+                rows_inserted = insert_historical_daily_data(historical_tuples)
+                print(f"✅ Inserted {rows_inserted} daily historical records in DB")
+            except Exception as e:
+                print(f"⚠️ Error inserting historical data in DB: {e}")
+
         return nearest_station, weather_data
     except Exception as e:
         print(f"Error getting data: {e}")

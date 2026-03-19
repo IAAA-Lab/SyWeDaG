@@ -2,11 +2,9 @@ import requests
 import json
 import time
 from typing import Optional, List, Dict
-from datetime import datetime, timedelta
-import numpy as np
+from datetime import date, timedelta
 
 from data_sources.base_source import BaseWeatherSource, WeatherStation, WeatherData, DailyWeatherRecord
-from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
 from utils.data_parsing import parse_coordinates, convert_wind_direction, parse_float, parse_int
 from utils.geospatial import calculate_distance_km
 from utils.historical_data_treatment import fill_missing_days, interpolate_missing_values_in_period
@@ -131,7 +129,7 @@ class AemetWeatherSource(BaseWeatherSource):
         """
         Get the nearest weather station to given coordinates.
         
-        Makes request to AEMET, calculates the nearest one, inserts it in DB and returns it.
+        Makes request to AEMET, calculates the nearest one and returns it.
         
         Args:
             latitude: Latitude of the point
@@ -159,7 +157,6 @@ class AemetWeatherSource(BaseWeatherSource):
         # Calculate distances and find the nearest
         closest_station = None
         min_distance = float('inf')
-        stations_to_insert = []
 
         for station in stations_data:
             try:
@@ -179,17 +176,6 @@ class AemetWeatherSource(BaseWeatherSource):
                 # Calculate distance
                 distance = calculate_distance_km(latitude, longitude, station_lat, station_lon)
 
-                # Save for DB insertion
-                stations_to_insert.append((
-                    self.source_name,           # source
-                    station_id,                 # id_station (can be string)
-                    station_name,               # name
-                    station_region,             # region
-                    station_lat,                # latitude
-                    station_lon,                # longitude
-                    station_height              # height
-                ))
-
                 # Find the nearest
                 if distance < min_distance:
                     min_distance = distance
@@ -206,14 +192,6 @@ class AemetWeatherSource(BaseWeatherSource):
             except (ValueError, TypeError) as e:
                 print(f"⚠️ Error processing station: {e}")
                 continue
-
-        # Insert all stations in DB
-        if stations_to_insert:
-            try:
-                insert_weather_stations(stations_to_insert)
-                print(f"✅ Inserted {len(stations_to_insert)} stations in DB")
-            except Exception as e:
-                print(f"⚠️ Error inserting stations in DB: {e}")
 
         if closest_station:
             print(f"✅ Nearest station: {closest_station.name} at {min_distance:.2f} km")
@@ -256,8 +234,6 @@ class AemetWeatherSource(BaseWeatherSource):
         all_daily_records = []
 
         # Get data in 6-month periods (AEMET API does not support more than 6 months)
-        from datetime import date, timedelta
-        
         current_date = date(start_year, 1, 1)
         
         # If final year is current, limit to today at 00h
@@ -276,7 +252,6 @@ class AemetWeatherSource(BaseWeatherSource):
                 next_period_start = current_date.replace(year=current_date.year + 1, month=current_date.month + 6 - 12)
             
             # End date is the day before next period, to avoid overlaps
-            from datetime import timedelta
             period_end = (next_period_start - timedelta(days=1)) if next_period_start <= end_date_obj else end_date_obj
             
             # Make sure period_end is not before current_date
@@ -394,41 +369,6 @@ class AemetWeatherSource(BaseWeatherSource):
             raise ValueError(f"No data obtained for station {station_id} ({start_year}-{end_year})")
 
         print(f"✅ Obtained {len(all_daily_records)} daily records from AEMET")
-
-        # Insert daily historical data in the database
-        historical_tuples = []
-        for rec in all_daily_records:
-            historical_tuples.append((
-                rec.date,                # date
-                self.source_name,        # source
-                station_id,              # id_station
-                rec.temperature_min,     # temperature_min
-                rec.temperature_max,     # temperature_max
-                rec.temperature_mean,    # temperature_mean
-                rec.hour_tmin,           # hour_tmin
-                rec.hour_tmax,           # hour_tmax
-                rec.precipitation,       # precipitation
-                rec.wind_speed_mean,     # wind_speed_mean
-                rec.wind_speed_max,      # wind_speed_max
-                rec.wind_direction,      # wind_direction
-                rec.hour_wind_max,       # hour_wind_max
-                rec.humidity_min,        # humidity_min
-                rec.humidity_max,        # humidity_max
-                rec.humidity_mean,       # humidity_mean
-                rec.hour_hrmin,          # hour_hrmin
-                rec.hour_hrmax,          # hour_hrmax
-                rec.pressure_min,        # pressure_min
-                rec.pressure_max,        # pressure_max
-                rec.hour_presmin,        # hour_presmin
-                rec.hour_presmax         # hour_presmax
-            ))
-        
-        if historical_tuples:
-            try:
-                rows_inserted = insert_historical_daily_data(historical_tuples)
-                print(f"✅ Inserted {rows_inserted} daily historical records in DB")
-            except Exception as e:
-                print(f"⚠️ Error inserting historical data: {e}")
 
         return WeatherData(daily_records=all_daily_records)
 
