@@ -72,6 +72,7 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import data_sources ^
     --hidden-import data_sources.aemet_source ^
     --hidden-import data_sources.base_source ^
+    --hidden-import data_sources.source_selector ^
     --hidden-import data_sources.__init__ ^
     --hidden-import generators ^
     --hidden-import generators.k_neighbors ^
@@ -122,6 +123,7 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import time ^
     --hidden-import typing ^
     --hidden-import utils.data_parsing ^
+    --hidden-import utils.geospatial ^
     --hidden-import utils.historical_data_treatment ^
     --hidden-import utils.system_utils ^
     --hidden-import base64 ^
