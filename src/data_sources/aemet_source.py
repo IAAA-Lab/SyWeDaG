@@ -3,12 +3,12 @@ import json
 import time
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
-from math import radians, cos, sin, asin, sqrt, pi
 import numpy as np
 
 from data_sources.base_source import BaseWeatherSource, WeatherStation, WeatherData, DailyWeatherRecord
 from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
 from utils.data_parsing import parse_coordinates, convert_wind_direction, parse_float, parse_int
+from utils.geospatial import calculate_distance_km
 from utils.historical_data_treatment import fill_missing_days, interpolate_missing_values_in_period
 
 
@@ -29,24 +29,6 @@ class AemetWeatherSource(BaseWeatherSource):
         super().__init__(config)
         self.api_url = config.get('api_url', 'https://opendata.aemet.es/opendata/api')
         self.api_key = config.get('api_key')
-
-    def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """
-        Calculate Haversine distance in km between two points.
-        
-        Args:
-            lat1, lon1: Latitude and longitude of point 1
-            lat2, lon2: Latitude and longitude of point 2
-            
-        Returns:
-            Distance in kilometers
-        """
-        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-        c = 2 * asin(sqrt(a))
-        return 6371 * c
 
     def _fetch_from_aemet_api(self, url: str) -> Optional[dict]:
         """
@@ -195,7 +177,7 @@ class AemetWeatherSource(BaseWeatherSource):
                 station_region = station.get('provincia', None)
 
                 # Calculate distance
-                distance = self._calculate_distance(latitude, longitude, station_lat, station_lon)
+                distance = calculate_distance_km(latitude, longitude, station_lat, station_lon)
 
                 # Save for DB insertion
                 stations_to_insert.append((
