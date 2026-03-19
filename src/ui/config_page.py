@@ -10,6 +10,7 @@ from ui.styles.config_styles import apply_config_styles
 from data_sources.aemet_source import AemetWeatherSource
 from generators.synthetic_generator import SyntheticWeatherGenerator
 from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
+from utils.historical_data_treatment import apply_historical_treatment_if_needed
 from utils.system_utils import get_resource_path
 
 def create_template_example_dataframe():
@@ -139,6 +140,8 @@ def get_mandatory_weather_data(latitude: float, longitude: float, start_year: in
             start_year=start_year,
             end_year=end_year
         )
+
+        weather_data = apply_historical_treatment_if_needed(weather_data)
 
         if nearest_station is not None:
             stations_to_insert = [

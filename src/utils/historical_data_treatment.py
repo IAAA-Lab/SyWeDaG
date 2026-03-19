@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from typing import List
 
+from data_sources.base_source import DailyWeatherRecord, WeatherData
 from utils.data_parsing import parse_float, parse_int
 
-
+# Functions for filling missing days and interpolating/extrapolating values in historical weather data.
 def fill_missing_days(daily_records: List[dict]) -> List[dict]:
     """
     Fill missing days by interpolating between available days or extrapolating at extremes.
@@ -317,3 +318,109 @@ def interpolate_missing_values_in_period(daily_records: List[dict]) -> None:
                     daily_records[i][actual_key] = prev_val
                 elif next_val is not None:
                     daily_records[i][actual_key] = next_val
+
+# Functions for checking if historical treatment is needed and applying it to weather data.
+def _needs_historical_treatment(daily_records: List[DailyWeatherRecord]) -> bool:
+    if len(daily_records) < 2:
+        return False
+
+    sorted_records = sorted(daily_records, key=lambda record: record.date)
+
+    for index in range(1, len(sorted_records)):
+        prev_date = datetime.strptime(sorted_records[index - 1].date, '%Y-%m-%d').date()
+        curr_date = datetime.strptime(sorted_records[index].date, '%Y-%m-%d').date()
+        if (curr_date - prev_date).days > 1:
+            return True
+
+    for record in sorted_records:
+        if (
+            record.temperature_min is None
+            or record.temperature_max is None
+            or record.temperature_mean is None
+            or record.precipitation is None
+            or record.wind_speed_mean is None
+            or record.wind_speed_max is None
+            or record.wind_direction is None
+            or record.humidity_min is None
+            or record.humidity_max is None
+            or record.humidity_mean is None
+            or record.pressure_min is None
+            or record.pressure_max is None
+        ):
+            return True
+
+    return False
+
+
+def _convert_weather_data_to_treatment_records(weather_data: WeatherData) -> List[dict]:
+    treatment_records = []
+    for record in weather_data.daily_records:
+        treatment_records.append(
+            {
+                'fecha': record.date,
+                'tmin': record.temperature_min,
+                'tmax': record.temperature_max,
+                'tmed': record.temperature_mean,
+                'horatmin': record.hour_tmin,
+                'horatmax': record.hour_tmax,
+                'prec': record.precipitation,
+                'velmedia': record.wind_speed_mean,
+                'racha': record.wind_speed_max,
+                'dir': record.wind_direction,
+                'horaracha': record.hour_wind_max,
+                'hrMin': record.humidity_min,
+                'hrMax': record.humidity_max,
+                'hrMedia': record.humidity_mean,
+                'horaHrMin': record.hour_hrmin,
+                'horaHrMax': record.hour_hrmax,
+                'presMin': record.pressure_min,
+                'presMax': record.pressure_max,
+                'horaPresMin': record.hour_presmin,
+                'horaPresMax': record.hour_presmax,
+            }
+        )
+    return treatment_records
+
+
+def _convert_treatment_records_to_weather_data(treatment_records: List[dict]) -> WeatherData:
+    daily_records = []
+    for daily_record in treatment_records:
+        record = DailyWeatherRecord(
+            date=daily_record.get('fecha', ''),
+            temperature_min=parse_float(daily_record.get('tmin')),
+            temperature_max=parse_float(daily_record.get('tmax')),
+            temperature_mean=parse_float(daily_record.get('tmed')),
+            hour_tmin=daily_record.get('horatmin'),
+            hour_tmax=daily_record.get('horatmax'),
+            precipitation=parse_float(daily_record.get('prec')),
+            wind_speed_mean=parse_float(daily_record.get('velmedia')),
+            wind_speed_max=parse_float(daily_record.get('racha')),
+            wind_direction=daily_record.get('dir'),
+            hour_wind_max=daily_record.get('horaracha'),
+            humidity_min=parse_int(daily_record.get('hrMin')),
+            humidity_max=parse_int(daily_record.get('hrMax')),
+            humidity_mean=parse_int(daily_record.get('hrMedia')),
+            hour_hrmin=daily_record.get('horaHrMin'),
+            hour_hrmax=daily_record.get('horaHrMax'),
+            pressure_min=parse_float(daily_record.get('presMin')),
+            pressure_max=parse_float(daily_record.get('presMax')),
+            hour_presmin=daily_record.get('horaPresMin'),
+            hour_presmax=daily_record.get('horaPresMax'),
+        )
+        daily_records.append(record)
+
+    return WeatherData(daily_records=daily_records)
+
+
+def apply_historical_treatment_if_needed(weather_data: WeatherData) -> WeatherData:
+    if weather_data is None or not weather_data.daily_records:
+        return weather_data
+
+    if not _needs_historical_treatment(weather_data.daily_records):
+        return weather_data
+
+    print("ℹ️ Applying historical interpolation/extrapolation")
+    treatment_records = _convert_weather_data_to_treatment_records(weather_data)
+    treatment_records = fill_missing_days(treatment_records)
+    interpolate_missing_values_in_period(treatment_records)
+    return _convert_treatment_records_to_weather_data(treatment_records)

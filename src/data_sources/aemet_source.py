@@ -7,8 +7,6 @@ from datetime import date, timedelta
 from data_sources.base_source import BaseWeatherSource, WeatherStation, WeatherData, DailyWeatherRecord
 from utils.data_parsing import parse_coordinates, convert_wind_direction, parse_float, parse_int
 from utils.geospatial import calculate_distance_km
-from utils.historical_data_treatment import fill_missing_days, interpolate_missing_values_in_period
-
 
 class AemetWeatherSource(BaseWeatherSource):
     """
@@ -293,20 +291,14 @@ class AemetWeatherSource(BaseWeatherSource):
                     current_date = current_date.replace(year=current_date.year + 1, month=current_date.month + 6 - 12)
                 continue
 
-            # 1. Fill missing days by interpolating
-            complete_period_data = fill_missing_days(period_data)
-            
-            # 2. Interpolate missing values (NULLs) within existing days
-            interpolate_missing_values_in_period(complete_period_data)
-            
-            # 3. Store daily records directly (without hourly interpolation - already done in step 2)
-            for record_index, daily_record in enumerate(complete_period_data):
+            # Store available records as returned by source
+            for record_index, daily_record in enumerate(period_data):
                 try:
                     fecha = daily_record.get('fecha', '')
                     tmin = parse_float(daily_record.get('tmin'))
                     tmax = parse_float(daily_record.get('tmax'))
                     tmed = parse_float(daily_record.get('tmed'))
-                    # Hours are already interpolated in step 2
+
                     hour_tmin = daily_record.get('horatmin')
                     hour_tmax = daily_record.get('horatmax')
                     
@@ -314,20 +306,20 @@ class AemetWeatherSource(BaseWeatherSource):
                     
                     wind_speed_mean = parse_float(daily_record.get('velmedia'))
                     wind_speed_max = parse_float(daily_record.get('racha'))
-                    # Wind direction is already interpolated in step 2
+
                     wind_dir = convert_wind_direction(daily_record.get('dir'))
                     hour_wind_max = daily_record.get('horaracha')
                     
                     hr_min = parse_int(daily_record.get('hrMin'))
                     hr_max = parse_int(daily_record.get('hrMax'))
                     hr_med = parse_int(daily_record.get('hrMedia'))
-                    # Hours are already interpolated in step 2
+
                     hour_hrmin = daily_record.get('horaHrMin')
                     hour_hrmax = daily_record.get('horaHrMax')
                     
                     pres_min = parse_float(daily_record.get('presMin'))
                     pres_max = parse_float(daily_record.get('presMax'))
-                    # Hours are already interpolated in step 2
+
                     hour_presmin = daily_record.get('horaPresMin')
                     hour_presmax = daily_record.get('horaPresMax')
                     
