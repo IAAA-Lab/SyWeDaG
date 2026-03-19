@@ -10,19 +10,8 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 import time
 import json
-from pathlib import Path
-import sys
 from ui.styles.map_styles import apply_map_styles
-
-def get_resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = Path(__file__).parent.parent.parent
-    
-    return Path(base_path) / relative_path
+from utils.system_utils import get_resource_path
 
 @st.cache_resource
 def load_geojson_files():

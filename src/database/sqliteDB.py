@@ -1,9 +1,9 @@
 import sqlite3 as sql
-from pathlib import Path
+from utils.system_utils import get_resource_path
 
 def get_db_path():
     """Get database path"""
-    return Path(__file__).parent.parent.parent / "data" / "weather.db"
+    return get_resource_path("data/weather.db")
 
 def createDB():
     """Create database file if it doesn't exist"""

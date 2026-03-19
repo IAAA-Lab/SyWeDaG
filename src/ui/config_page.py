@@ -4,23 +4,12 @@ Configuration page component for meteoZar
 
 import streamlit as st
 import json
-from pathlib import Path
 from datetime import datetime, timedelta
-import sys
 import pandas as pd
 from ui.styles.config_styles import apply_config_styles
 from data_sources.aemet_source import AemetWeatherSource
 from generators.synthetic_generator import SyntheticWeatherGenerator
-
-def get_resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = Path(__file__).parent.parent.parent
-    
-    return Path(base_path) / relative_path
+from utils.system_utils import get_resource_path
 
 def create_template_example_dataframe():
     """Create an example DataFrame for the template"""

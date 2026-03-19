@@ -5,8 +5,7 @@ Main entry point for the Streamlit application
 
 import streamlit as st
 import json
-import sys
-from pathlib import Path
+from utils.system_utils import get_resource_path
 
 # Page configuration
 st.set_page_config(
@@ -15,16 +14,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-def get_resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = Path(__file__).parent.parent
-    
-    return Path(base_path) / relative_path
 
 # Load configuration
 config_path = get_resource_path("config/config.json")
