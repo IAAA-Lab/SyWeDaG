@@ -6,107 +6,12 @@ Includes search functionality and zoom controls
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
-from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderServiceError
-import time
-import json
+from application.map_services import (
+    load_geojson_files,
+    geocode_location,
+    get_data_source_for_point,
+)
 from ui.styles.map_styles import apply_map_styles
-from utils.system_utils import get_resource_path
-
-@st.cache_resource
-def load_geojson_files():
-    """
-    Cache loaded GeoJSON files to avoid reloading on every click
-    
-    Returns:
-        dict: Dictionary with source names as keys and GeoJSON data as values
-    """
-    geojson_cache = {}
-    
-    try:
-        config_path = get_resource_path("config/config.json")
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-        
-        for source in config.get("data_sources", []):
-            geojson_path = source.get("geojson_path")
-            source_name = source.get("name")
-            
-            if geojson_path and source_name:
-                full_path = get_resource_path(geojson_path)
-                if full_path.exists():
-                    try:
-                        with open(full_path, 'r', encoding='utf-8') as f:
-                            geojson_cache[source_name] = json.load(f)
-                    except Exception as e:
-                        print(f"⚠️ Error loading {geojson_path}: {e}")
-    
-    except Exception as e:
-        print(f"⚠️ Error in load_geojson_files: {e}")
-    
-    return geojson_cache
-
-def geocode_location(search_query):
-    """
-    Geocode a search query to coordinates
-    
-    Args:
-        search_query (str): Location to search for
-        
-    Returns:
-        tuple: (latitude, longitude) or None if not found
-    """
-    try:
-        geolocator = Nominatim(user_agent="meteoZar")
-        location = geolocator.geocode(search_query, timeout=10)
-        if location:
-            return (location.latitude, location.longitude)
-    except (GeocoderTimedOut, GeocoderServiceError) as e:
-        st.error(f"Geocoding error: {str(e)}")
-    return None
-
-def get_data_source_for_point(lat, lon, config):
-    """
-    Determine which data source covers a given point using GeoJSON boundaries
-    Uses cached GeoJSON for performance
-    
-    Args:
-        lat (float): Latitude
-        lon (float): Longitude
-        config (dict): Configuration dictionary
-        
-    Returns:
-        dict: Data source configuration or None
-    """
-    from shapely.geometry import Point, shape
-    
-    point = Point(lon, lat)
-    
-    # Load cached GeoJSON files
-    geojson_cache = load_geojson_files()
-    
-    for source in config.get("data_sources", []):
-        source_name = source.get("name")
-        
-        if source_name and source_name in geojson_cache:
-            geojson_data = geojson_cache[source_name]
-            
-            try:
-                # Check each feature in the GeoJSON
-                for feature in geojson_data.get("features", []):
-                    geometry = feature.get("geometry")
-                    if geometry:
-                        # Convert GeoJSON geometry to Shapely shape
-                        shapely_geom = shape(geometry)
-                        
-                        # Check if point is within this geometry
-                        if shapely_geom.contains(point):
-                            return source
-            
-            except Exception as e:
-                print(f"⚠️ Error checking GeoJSON {source_name}: {e}")
-    
-    return None
 
 def add_country_polygons(m, config):
     """
@@ -274,7 +179,6 @@ def render_map(config):
             
             # Check which data source covers this point
             try:
-                from shapely.geometry import Point, Polygon
                 data_source = get_data_source_for_point(lat, lon, config)
                 if data_source:
                     st.session_state.selected_data_source = data_source["name"]

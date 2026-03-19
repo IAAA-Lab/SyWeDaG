@@ -59,6 +59,7 @@ streamlit-desktop-app build src/main.py ^
     --add-data "src/data_sources;data_sources" ^
     --add-data "src/database;database" ^
     --add-data "src/generators;generators" ^
+    --add-data "src/application;application" ^
     --add-data "src/utils;utils" ^
     --hidden-import database.sqliteDB ^
     --hidden-import sqlite3 ^
@@ -79,6 +80,8 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import generators.xgboost_model ^
     --hidden-import generators.synthetic_generator ^
     --hidden-import generators.mbc_correction ^
+    --hidden-import application ^
+    --hidden-import application.map_services ^
     --hidden-import sklearn ^
     --hidden-import sklearn.neighbors ^
     --hidden-import sklearn.preprocessing ^
