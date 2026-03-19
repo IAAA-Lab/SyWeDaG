@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timedelta
 import pandas as pd
 from ui.styles.config_styles import apply_config_styles
-from data_sources.aemet_source import AemetWeatherSource
+from data_sources.source_selector import get_data_source_instance
 from generators.synthetic_generator import SyntheticWeatherGenerator
 from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
 from utils.historical_data_treatment import apply_historical_treatment_if_needed
@@ -73,36 +73,6 @@ def show_template_modal_dialog():
             "the temperature adjustment will be skipped for that period."
         )
 
-
-def get_data_source_instance(source_name: str, config: dict):
-    """
-    Get a data source instance based on name.
-    
-    Args:
-        source_name: Name of the data source (e.g. 'AEMET')
-        config: Configuration dictionary
-        
-    Returns:
-        Data source instance, or None if not found
-    """
-    # Find the data source configuration
-    source_config = next(
-        (s for s in config.get('data_sources', []) if s['name'] == source_name),
-        None
-    )
-    
-    if not source_config:
-        return None
-    
-    # Instantiate based on name
-    if source_name == 'AEMET':
-        return AemetWeatherSource(source_config)
-    
-    # Add more sources here in the future
-    # elif source_name == 'OTHER_SOURCE':
-    #     return OtherWeatherSource(source_config)
-    
-    return None
 
 def get_mandatory_weather_data(latitude: float, longitude: float, start_year: int, end_year: int, config: dict):
     """

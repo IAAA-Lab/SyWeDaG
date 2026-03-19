@@ -1,5 +1,7 @@
 # meteoZar - Synthetic Weather Scenario Generator
 
+#TODO: Update this README
+
 A desktop application for generating and visualizing synthetic meteorological scenarios using historical weather data from multiple sources (AEMET for Spain, extensible to other countries).
 
 ## Project Structure
