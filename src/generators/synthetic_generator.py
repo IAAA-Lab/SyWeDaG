@@ -526,7 +526,7 @@ class SyntheticWeatherGenerator:
             #print(f"      OK - Número de días correcto")
 
         # Fase 4: factor multiplicativo con matriz combinada días × precipitación
-        print(f"\n   📐 FASE 4: Factor multiplicativo (matriz combinada)...")
+        #print(f"\n   📐 FASE 4: Factor multiplicativo (matriz combinada)...")
         days_in_month = len(indices)
 
         # Estado FINAL de días tras Fase 3

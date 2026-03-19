@@ -1,6 +1,7 @@
 """
 Excel Files Combiner Script
-
+Data Source:
+    https://escenarios.adaptecca.es/
 Description:
     This script processes Excel files containing meteorological data (precipitation and temperature)
     organized in separate folders by variable type (Prec, TMax, TMed, TMin).
@@ -17,13 +18,14 @@ Data Structure:
     Output: combined_data.xlsx with columns:
         - Year
         - Month
-        - Variable (precipitation, temperature_max, temperature_mean, temperature_min)
+        - Variable (precipitation, temperature_max, temperature_mean, temperature_min, 
+                    number_days_rain)
         - Minimum
         - Mean
         - Maximum
 
 Usage:
-    1. Organize your Excel files in subdirectories named: Prec/, TMax/, TMed/, TMin/
+    1. Organize your Excel files in subdirectories named: Prec/, TMax/, TMed/, TMin/, NDaysRain/
     2. Place them in the same directory as this script
     3. Run: python combinarExcels.py
     4. The combined_data.xlsx file will be generated in the same directory
@@ -33,7 +35,8 @@ Requirements:
     - openpyxl (for Excel support)
 
 Note:
-    - Files must be named with month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
+    - Files must be named with month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep,
+         Oct, Nov, Dec)
     - Excel files should be in .xls format
     - The 'Datos' sheet should have a header row and data starting from row 2
 """
@@ -42,7 +45,7 @@ import os
 import pandas as pd
 from pathlib import Path
 
-# Configuration of folders and variables
+# Folder and variable configuration
 BASE_FOLDER = Path(__file__).parent
 VARIABLE_MAPPING = {
     'Prec': {
@@ -53,13 +56,17 @@ VARIABLE_MAPPING = {
         'name': 'temperature_max',
         'folder': BASE_FOLDER / 'TMax'
     },
-    'TMed': {
+    'TMean': {
         'name': 'temperature_mean',
-        'folder': BASE_FOLDER / 'TMed'
+        'folder': BASE_FOLDER / 'TMean'
     },
     'TMin': {
         'name': 'temperature_min',
         'folder': BASE_FOLDER / 'TMin'
+    },
+    'NDaysRain': {
+        'name': 'number_days_rain',
+        'folder': BASE_FOLDER / 'NDaysRain'
     }
 }
 
@@ -70,26 +77,26 @@ MONTHS = {
 }
 
 def extract_month_from_filename(filename):
-    """Extract the month from the filename"""
+    """Extracts the month from the filename"""
     for month_str, month_num in MONTHS.items():
         if month_str in filename:
             return month_num
     return None
 
 def read_excel_data(file_path, variable_name):
-    """Read data from an Excel file and return a DataFrame"""
+    """Reads data from an Excel file and returns a DataFrame"""
     try:
-        # Attempt to read without specifying engine (automatic detection)
+        # Try reading without specifying engine (automatic detection)
         df = pd.read_excel(file_path, sheet_name='Datos', skiprows=1)
         
         # Clean whitespace from column names
         df.columns = df.columns.str.strip()
         
-        # Ensure the expected columns are present
+        # Ensure it has the expected columns
         expected_columns = ['Año', 'Mínimo', 'Media', 'Máximo']
         if not all(col in df.columns for col in expected_columns):
             print(f"Warning: Unexpected columns in {file_path}")
-            print(f"Columns found: {df.columns.tolist()}")
+            print(f"Found columns: {df.columns.tolist()}")
             return None
         
         # Remove completely empty rows
@@ -100,12 +107,12 @@ def read_excel_data(file_path, variable_name):
         print(f"Error reading {file_path}: {e}")
         return None
 
-def process_all_excel_files():
+def process_all_excels():
     """Process all Excel files and generate the combined file"""
     
     combined_data = []
     
-    # Iterate through each variable
+    # Iterate over each variable
     for var_key, var_info in VARIABLE_MAPPING.items():
         variable_name = var_info['name']
         folder = var_info['folder']
@@ -116,7 +123,7 @@ def process_all_excel_files():
         
         print(f"\nProcessing variable: {variable_name}")
         
-        # Iterate through all .xls files in the folder
+        # Iterate over all .xls files in the folder
         for file in sorted(folder.glob('*.xls')):
             month_num = extract_month_from_filename(file.name)
             
@@ -126,7 +133,7 @@ def process_all_excel_files():
             
             print(f"  Reading: {file.name} (month {month_num})")
             
-            # Read the data from the Excel file
+            # Read the Excel data
             df = read_excel_data(file, variable_name)
             
             if df is None:
@@ -159,7 +166,7 @@ def process_all_excel_files():
         print("\nError: No data was successfully processed")
         return False
     
-    # Sort by Year, Month, and Variable
+    # Sort by Year, Month and Variable
     df_final = df_final.sort_values(['Year', 'Month', 'Variable']).reset_index(drop=True)
     
     # Save to Excel file
@@ -180,4 +187,4 @@ if __name__ == '__main__':
     print("=" * 60)
     print("EXCEL FILES COMBINER")
     print("=" * 60)
-    process_all_excel_files()
+    process_all_excels()

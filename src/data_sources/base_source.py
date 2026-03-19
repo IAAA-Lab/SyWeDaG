@@ -2,42 +2,41 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass
 
-
 @dataclass
 class WeatherStation:
     """Represents a weather station"""
-    source: str
-    id_station: int
-    name: str
-    region: Optional[str]
-    latitude: float
-    longitude: float
-    height: int
+    source: str             # Source name (e.g., "AEMET")
+    id_station: int         # Unique station ID (source-specific)
+    name: str               # Station name (e.g., "Madrid-Barajas")
+    region: Optional[str]   # Region or province (e.g., "Madrid")
+    latitude: float         # Latitude of the station (e.g., 39.735)
+    longitude: float        # Longitude of the station (e.g., -2.785)
+    height: int             # Height above sea level in meters (e.g., 610)
 
 
 @dataclass
 class DailyWeatherRecord:
     """Daily meteorological record with all fields"""
-    date: str                        # Date YYYY-MM-DD
-    temperature_min: Optional[float] = None
-    temperature_max: Optional[float] = None
-    temperature_mean: Optional[float] = None
-    hour_tmin: Optional[str] = None
-    hour_tmax: Optional[str] = None
-    precipitation: Optional[float] = None
-    wind_speed_mean: Optional[float] = None
-    wind_speed_max: Optional[float] = None
-    wind_direction: Optional[str] = None
-    hour_wind_max: Optional[str] = None
-    humidity_min: Optional[int] = None
-    humidity_max: Optional[int] = None
-    humidity_mean: Optional[int] = None
-    hour_hrmin: Optional[str] = None
-    hour_hrmax: Optional[str] = None
-    pressure_min: Optional[float] = None
-    pressure_max: Optional[float] = None
-    hour_presmin: Optional[str] = None
-    hour_presmax: Optional[str] = None
+    date: str                                   # Date (YYYY-MM-DD)
+    temperature_min: Optional[float] = None     # Minimum temperature in °C (e.g., 5.2)
+    temperature_max: Optional[float] = None     # Maximum temperature in °C (e.g., 15.8)
+    temperature_mean: Optional[float] = None    # Mean temperature in °C (e.g., 12.3)
+    hour_tmin: Optional[str] = None             # Hour of minimum temperature (HH:MM, e.g., "04:00")
+    hour_tmax: Optional[str] = None             # Hour of maximum temperature (HH:MM, e.g., "14:00")
+    precipitation: Optional[float] = None       # Daily precipitation in mm (e.g., 0.0)
+    wind_speed_mean: Optional[float] = None     # Wind speed mean in km/h (e.g., 12.5)
+    wind_speed_max: Optional[float] = None      # Wind speed max in km/h (e.g., 25.0)
+    wind_direction: Optional[str] = None        # Wind direction (N, NE, E, SE, S, SW, W, NW)
+    hour_wind_max: Optional[str] = None         # Hour of maximum wind speed (HH:MM, e.g., "16:00")
+    humidity_min: Optional[int] = None          # Humidity minimum in % (e.g., 30)
+    humidity_max: Optional[int] = None          # Humidity maximum in % (e.g., 80)
+    humidity_mean: Optional[int] = None         # Humidity mean in % (e.g., 55)
+    hour_hrmin: Optional[str] = None            # Hour of minimum humidity (HH:MM, e.g., "06:00")
+    hour_hrmax: Optional[str] = None            # Hour of maximum humidity (HH:MM, e.g., "18:00")
+    pressure_min: Optional[float] = None        # Pressure minimum in hPa (e.g., 1010.5)
+    pressure_max: Optional[float] = None        # Pressure maximum in hPa (e.g., 1025.0)
+    hour_presmin: Optional[str] = None          # Hour of minimum pressure (HH:MM, e.g., "08:00")
+    hour_presmax: Optional[str] = None          # Hour of maximum pressure (HH:MM, e.g., "20:00")
 
 
 @dataclass

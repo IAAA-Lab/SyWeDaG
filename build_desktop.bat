@@ -121,6 +121,8 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import math ^
     --hidden-import time ^
     --hidden-import typing ^
+    --hidden-import utils.data_parsing ^
+    --hidden-import utils.historical_data_treatment ^
     --hidden-import base64 ^
     --hidden-import random ^
     --hidden-import sys ^
