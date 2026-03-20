@@ -1,5 +1,5 @@
 """
-Results page component for meteoZar
+Results page component for MeteoSynthetic
 Displays the results of the synthetic weather data generation
 """
 

@@ -1,4 +1,4 @@
-# meteoZar - Synthetic Weather Scenario Generator
+# MeteoSynthetic - Synthetic Weather Scenario Generator
 
 #TODO: Update this README
 
@@ -39,7 +39,7 @@ A desktop application for generating and visualizing synthetic meteorological sc
 │       ├── historical_data_treatment.py
 │       └── system_utils.py
 ├── build_desktop.bat               # Desktop build script
-├── meteoZar.spec                   # PyInstaller spec (generated/used in builds)
+├── MeteoSynthetic.spec                   # PyInstaller spec (generated/used in builds)
 ├── requirements.txt                # Python dependencies
 └── README.md
 ```

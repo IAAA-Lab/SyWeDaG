@@ -1,5 +1,5 @@
 """
-Styles module for meteoZar application
+Styles module for MeteoSynthetic application
 """
 
 from .base_styles import apply_base_styles

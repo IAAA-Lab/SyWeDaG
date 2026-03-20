@@ -1,5 +1,5 @@
 """
-meteoZar - Synthetic Weather Scenario Generator
+MeteoSynthetic - Synthetic Weather Scenario Generator
 Main entry point for the Streamlit application
 """
 
@@ -9,7 +9,7 @@ from utils.system_utils import get_resource_path
 
 # Page configuration
 st.set_page_config(
-    page_title="meteoZar",
+    page_title="MeteoSynthetic",
     page_icon="🌤️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -71,7 +71,7 @@ def main():
     else:
         st.markdown('''
         <div class="blue-header">
-            <h1 class="header-title">meteoZar</h1>
+            <h1 class="header-title">MeteoSynthetic</h1>
         </div>
         ''', unsafe_allow_html=True)
     

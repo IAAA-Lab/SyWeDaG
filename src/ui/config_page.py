@@ -1,5 +1,5 @@
 """
-Configuration page component for meteoZar
+Configuration page component for MeteoSynthetic
 """
 
 import streamlit as st
