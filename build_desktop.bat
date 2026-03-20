@@ -82,6 +82,7 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import generators.mbc_correction ^
     --hidden-import application ^
     --hidden-import application.map_services ^
+    --hidden-import application.config_services ^
     --hidden-import sklearn ^
     --hidden-import sklearn.neighbors ^
     --hidden-import sklearn.preprocessing ^

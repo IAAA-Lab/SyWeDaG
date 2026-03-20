@@ -3,15 +3,16 @@ Configuration page component for meteoZar
 """
 
 import streamlit as st
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 from ui.styles.config_styles import apply_config_styles
-from data_sources.source_selector import get_data_source_instance
-from generators.synthetic_generator import SyntheticWeatherGenerator
-from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
-from utils.historical_data_treatment import apply_historical_treatment_if_needed
-from utils.system_utils import get_resource_path
+from application.config_services import (
+    validate_predictions,
+    get_mandatory_weather_data,
+    compute_generation_dates,
+    generate_synthetic_data,
+    METHOD_OPTIONS_MAP,
+)
 
 def create_template_example_dataframe():
     """Create an example DataFrame for the template"""
@@ -71,150 +72,6 @@ def show_template_modal_dialog():
             "**all three temperature variables** (`temperature_min`, `temperature_mean`, and "
             "`temperature_max`) for each month and year. If any temperature variable is missing, "
             "the temperature adjustment will be skipped for that period."
-        )
-
-
-def get_mandatory_weather_data(latitude: float, longitude: float, start_year: int, end_year: int, config: dict):
-    """
-    Get the nearest station and required meteorological data.
-    
-    Args:
-        latitude: Latitude of the point
-        longitude: Longitude of the point
-        start_year: Start year
-        end_year: End year
-        config: Configuration dictionary
-        
-    Returns:
-        Tuple (WeatherStation, WeatherData) or (None, None) if there's an error
-        
-    Raises:
-        ValueError: If no data source is available
-    """
-    selected_data_source = st.session_state.get('selected_data_source')
-    
-    if selected_data_source is None:
-        raise ValueError("No data source available for this location")
-    
-    # Get data source instance
-    data_source = get_data_source_instance(selected_data_source, config)
-    
-    if data_source is None:
-        raise ValueError(f"Data source '{selected_data_source}' not configured")
-    
-    # Get data using the modular method
-    try:
-        nearest_station, weather_data = data_source.get_mandatory_data(
-            latitude=latitude,
-            longitude=longitude,
-            start_year=start_year,
-            end_year=end_year
-        )
-
-        weather_data = apply_historical_treatment_if_needed(weather_data)
-
-        if nearest_station is not None:
-            stations_to_insert = [
-                (
-                    nearest_station.source,
-                    nearest_station.id_station,
-                    nearest_station.name,
-                    nearest_station.region,
-                    nearest_station.latitude,
-                    nearest_station.longitude,
-                    nearest_station.height,
-                )
-            ]
-
-            try:
-                rows_inserted = insert_weather_stations(stations_to_insert)
-                print(f"✅ Inserted {rows_inserted} weather station(s) in DB")
-            except Exception as e:
-                print(f"⚠️ Error inserting stations in DB: {e}")
-
-        if nearest_station is not None and weather_data is not None and weather_data.daily_records:
-            historical_tuples = [
-                (
-                    rec.date,
-                    nearest_station.source,
-                    nearest_station.id_station,
-                    rec.temperature_min,
-                    rec.temperature_max,
-                    rec.temperature_mean,
-                    rec.hour_tmin,
-                    rec.hour_tmax,
-                    rec.precipitation,
-                    rec.wind_speed_mean,
-                    rec.wind_speed_max,
-                    rec.wind_direction,
-                    rec.hour_wind_max,
-                    rec.humidity_min,
-                    rec.humidity_max,
-                    rec.humidity_mean,
-                    rec.hour_hrmin,
-                    rec.hour_hrmax,
-                    rec.pressure_min,
-                    rec.pressure_max,
-                    rec.hour_presmin,
-                    rec.hour_presmax,
-                )
-                for rec in weather_data.daily_records
-            ]
-
-            try:
-                rows_inserted = insert_historical_daily_data(historical_tuples)
-                print(f"✅ Inserted {rows_inserted} daily historical records in DB")
-            except Exception as e:
-                print(f"⚠️ Error inserting historical data in DB: {e}")
-
-        return nearest_station, weather_data
-    except Exception as e:
-        print(f"Error getting data: {e}")
-        raise
-
-def _validate_predictions(df: pd.DataFrame):
-    """
-    Validate that the predictions DataFrame has the correct format.
-    
-    Raises:
-        ValueError: If the format is invalid
-    """
-    required_columns = {'Year', 'Month', 'Variable', 'Minimum', 'Mean', 'Maximum'}
-    missing = required_columns - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
-    
-    valid_variables = {'precipitation', 'temperature_max', 'temperature_mean', 'temperature_min','number_days_rain'}
-    invalid = set(df['Variable'].unique()) - valid_variables
-    if invalid:
-        raise ValueError(f"Invalid variables: {invalid}. Valid: {valid_variables}")
-    
-    if not all(df['Month'].between(1, 12)):
-        raise ValueError("Month values must be between 1 and 12")
-    
-    if df['Year'].isna().any():
-        raise ValueError("Year column cannot contain empty values")
-    
-    # Check for missing values in Minimum, Mean, Maximum columns
-    value_columns = ['Minimum', 'Mean', 'Maximum']
-    for col in value_columns:
-        if df[col].isna().any():
-            missing_rows = df[df[col].isna()]
-            raise ValueError(
-                f"Missing values in '{col}' column. "
-                f"Found empty cells in rows with Year={missing_rows['Year'].iloc[0]}, "
-                f"Month={missing_rows['Month'].iloc[0]}, Variable={missing_rows['Variable'].iloc[0]}"
-            )
-    
-    # Check that Minimum <= Mean <= Maximum for each row
-    invalid_rows = df[(df['Minimum'] > df['Mean']) | (df['Mean'] > df['Maximum'])]
-    if not invalid_rows.empty:
-        first_invalid = invalid_rows.iloc[0]
-        raise ValueError(
-            f"Invalid value ranges for Year={first_invalid['Year']}, Month={first_invalid['Month']}, "
-            f"Variable={first_invalid['Variable']}: "
-            f"Minimum ({first_invalid['Minimum']}) must be <= Mean ({first_invalid['Mean']}) "
-            f"must be <= Maximum ({first_invalid['Maximum']})"
         )
 
 
@@ -325,7 +182,7 @@ def render_config_page(config):
     if uploaded_file is not None:
         try:
             predictions_df = pd.read_excel(uploaded_file, engine='openpyxl')
-            _validate_predictions(predictions_df)
+            validate_predictions(predictions_df)
             st.success(f"✅ Predictions loaded: {len(predictions_df)} entries")
         except ValueError as e:
             st.error(f"❌ Invalid file: {e}")
@@ -417,40 +274,24 @@ def render_config_page(config):
                 latitude = selected_point[0]
                 longitude = selected_point[1]
                 
-                # Load config
-                config_path = get_resource_path("config/config.json")
-                with open(config_path, 'r') as f:
-                    config = json.load(f)
-                
                 # Get data using modular function
                 nearest_station, weather_data = get_mandatory_weather_data(
                     latitude=latitude,
                     longitude=longitude,
                     start_year=start_year,
                     end_year=end_year,
-                    config=config
+                    config=config,
+                    selected_data_source=st.session_state.get('selected_data_source')
                 )
                 
                 # Save selected data source to session for later use
                 selected_source = st.session_state.get('selected_data_source')
                 
-                # Extract the last real date from obtained historical data
-                if weather_data and weather_data.daily_records:
-                    last_record = weather_data.daily_records[-1]
-                    last_historical_date = datetime.strptime(last_record.date, '%Y-%m-%d').date()
-                    actual_historical_end = last_historical_date.isoformat()
-                else:
-                    actual_historical_end = f'{end_year}-12-31'
-                    last_historical_date = datetime(end_year, 12, 31).date()
-                
-                # Adjust generation start date if it's the current year
-                actual_generation_start = f'{gen_start_year}-01-01'
-                if gen_start_year == datetime.now().year and gen_start_year == end_year:
-                    # If we're generating in the current year and historical data is also from current year,
-                    # start the day after the last historical record
-                    next_day = last_historical_date + timedelta(days=1)
-                    actual_generation_start = next_day.isoformat()
-                    print(f"📅 Adjusting generation start to: {actual_generation_start}")
+                actual_historical_end, actual_generation_start = compute_generation_dates(
+                    weather_data=weather_data,
+                    end_year=end_year,
+                    gen_start_year=gen_start_year,
+                )
                 
                 # Update modal: Generating data
                 with modal_placeholder.container():
@@ -469,29 +310,21 @@ def render_config_page(config):
                     """, unsafe_allow_html=True)
                 
                 # Generate synthetic data
-                generator = SyntheticWeatherGenerator(
-                    source=selected_source,
-                    id_station=nearest_station.id_station,
-                    historical_start=f'{start_year}-01-01',
-                    historical_end=actual_historical_end,
-                    generation_start=actual_generation_start,
-                    generation_end=f'{gen_end_year}-12-31'
-                )
-                
-                _METHOD_OPTIONS_MAP = {
-                    "K-Nearest Neighbors": "knn",
-                    "Machine Learning (XGBoost)": "xgboost",
-                }
                 selected_label = st.session_state.get(
                     'correction_method_radio', 'K-Nearest Neighbors'
                 )
-                correction_method = _METHOD_OPTIONS_MAP.get(selected_label, 'knn')
 
-                job_id, rows_inserted, generated_data = generator.generate_and_save(
-                    latitude,
-                    longitude,
-                    predictions_df,
-                    correction_method
+                job_id, rows_inserted, generated_data = generate_synthetic_data(
+                    source=selected_source,
+                    station_id=nearest_station.id_station,
+                    start_year=start_year,
+                    gen_end_year=gen_end_year,
+                    actual_historical_end=actual_historical_end,
+                    actual_generation_start=actual_generation_start,
+                    latitude=latitude,
+                    longitude=longitude,
+                    predictions_df=predictions_df,
+                    correction_method_label=selected_label,
                 )
                 
                 # Clear modal

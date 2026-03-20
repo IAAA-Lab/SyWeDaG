@@ -7,30 +7,41 @@ A desktop application for generating and visualizing synthetic meteorological sc
 ## Project Structure
 
 ```
-├── assets/                     # Images and resources
+├── assets/                         # Images and resources
 ├── config/
-│   └── config.json             # Application configuration
-├── data/                       # Local SQLite database
-├── sample_pred_excels/         # Prediction sample Excel files
+│   └── config.json                 # Application and data-source configuration
+├── data/                           # Local SQLite database files
+├── sample_pred_excels/             # Sample prediction Excel files
 ├── src/
-│   ├── main.py                 # Main entry point
-│   ├── ui/                     # User interface components
-│   │   ├── styles/             # Custom UI styles
-│   │   ├── config_page.py      # Configuration page for data generation
-│   │   ├── map_component.py    # Map with search and zoom
-│   │   └── results_page.py     # Page with graphics for generated scenarios
-│   ├── data_sources/           # Modular data source adapters
-│   │   ├── base_source.py      # Abstract base class
-│   │   └── aemet_source.py     # AEMET implementation
-│   ├── database/               # SQLite database management
-│   │   └── sqliteDB.py
-│   ├── generators/             # Synthetic data generation
-│   │   └── synthetic_generator.py
-│   └── utils/                  # Utility functions
-│       └── geocoding.py
-├── build_desktop.bat           # Build script for desktop application
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
+│   ├── main.py                     # Streamlit entry point
+│   ├── application/                # Application/business logic (UI-independent)
+│   │   ├── map_services.py         # Geocoding + GeoJSON coverage logic
+│   │   └── config_services.py      # Validation + fetch/generate orchestration
+│   ├── ui/                         # Presentation layer (Streamlit/Folium)
+│   │   ├── styles/                 # UI styles per page/component
+│   │   ├── map_component.py        # Interactive map page/component
+│   │   ├── config_page.py          # Data/generation configuration page
+│   │   └── results_page.py         # Results and visualization page
+│   ├── data_sources/               # Weather source adapters
+│   │   ├── base_source.py          # Common source interface/models
+│   │   ├── aemet_source.py         # AEMET implementation
+│   │   └── source_selector.py      # Source factory/selector
+│   ├── generators/                 # Synthetic data generation logic
+│   │   ├── synthetic_generator.py
+│   │   ├── k_neighbors.py
+│   │   ├── xgboost_model.py
+│   │   └── mbc_correction.py
+│   ├── database/
+│   │   └── sqliteDB.py             # DB schema and persistence helpers
+│   └── utils/                      # Shared utility helpers
+│       ├── data_parsing.py
+│       ├── geospatial.py
+│       ├── historical_data_treatment.py
+│       └── system_utils.py
+├── build_desktop.bat               # Desktop build script
+├── meteoZar.spec                   # PyInstaller spec (generated/used in builds)
+├── requirements.txt                # Python dependencies
+└── README.md
 ```
 
 ## Features

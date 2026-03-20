@@ -11,7 +11,7 @@ dist/
 *.spec
 
 # Database files
-data/
+*.db
 
 # Configuration with sensitive data
 # TODO: Remove this line when APIKEY insertion is implemented
