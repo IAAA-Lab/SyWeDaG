@@ -17,27 +17,28 @@ from application.config_services import (
 def create_template_example_dataframe():
     """Create an example DataFrame for the template"""
     return pd.DataFrame({
-        'Year': [2026, 2026, 2026, 2026, 2026, 2026, 2026, 2026],
-        'Month': [1, 1, 1, 1, 2, 2, 2, 2],
-        'Variable': ['temperature_max', 'temperature_mean', 'temperature_min', 'precipitation',
-                     'temperature_max', 'temperature_mean', 'temperature_min', 'precipitation'],
-        'Minimum': [15.0, 10.0, 5.0, 20.0, 16.0, 11.0, 6.0, 25.0],
-        'Mean': [18.0, 13.0, 8.0, 35.0, 19.0, 14.0, 9.0, 40.0],
-        'Maximum': [22.0, 16.0, 11.0, 50.0, 23.0, 17.0, 12.0, 55.0]
+        'Year': [2026, 2026, 2026, 2026, 2026, 2026, 2026, 2026, 2026, 2026],
+        'Month': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
+        'Variable': ['temperature_max', 'temperature_mean', 'temperature_min', 'precipitation', 'number_days_rain',
+                     'temperature_max', 'temperature_mean', 'temperature_min', 'precipitation', 'number_days_rain'],
+        'Minimum': [15.0, 10.0, 5.0, 20.0, 3.0, 16.0, 11.0, 6.0, 25.0, 4.0],
+        'Mean': [18.0, 13.0, 8.0, 35.0, 6.0, 19.0, 14.0, 9.0, 40.0, 7.0],
+        'Maximum': [22.0, 16.0, 11.0, 50.0, 10.0, 23.0, 17.0, 12.0, 55.0, 11.0]
     })
 
 def create_variables_dataframe():
     """Create a DataFrame with variables information"""
     return pd.DataFrame({
-        'Variable': ['temperature_max', 'temperature_min', 'temperature_mean', 'precipitation'],
+        'Variable': ['temperature_max', 'temperature_min', 'temperature_mean', 'precipitation', 'number_days_rain'],
         'Description': [
             'Maximum daily temperature of the month',
             'Minimum daily temperature of the month',
             'Mean daily temperature of the month',
-            'Mean daily precipitation of the month'
+            'Mean daily precipitation of the month',
+            'Number of rainy days in the month'
         ],
-        'Unit': ['°C', '°C', '°C', 'mm/day'],
-        'Type': ['temperature', 'temperature', 'temperature', 'precipitation']
+        'Unit': ['°C', '°C', '°C', 'mm/day', 'days'],
+        'Type': ['temperature', 'temperature', 'temperature', 'precipitation', 'precipitation']
     })
 
 @st.dialog("Template Information", width="large")
