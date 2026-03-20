@@ -4,6 +4,7 @@ Configuration page component for MeteoSynthetic
 
 import streamlit as st
 from datetime import datetime
+from io import BytesIO
 import pandas as pd
 from ui.styles.config_styles import apply_config_styles
 from application.config_services import (
@@ -14,8 +15,9 @@ from application.config_services import (
     METHOD_OPTIONS_MAP,
 )
 
-def create_template_example_dataframe():
-    """Create an example DataFrame for the template"""
+# Build template example DataFrame and variables DataFrame
+def _build_template_example_dataframe():
+    """Build the example DataFrame used in the template."""
     return pd.DataFrame({
         'Year': [2026, 2026, 2026, 2026, 2026, 2026, 2026, 2026, 2026, 2026],
         'Month': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
@@ -26,8 +28,14 @@ def create_template_example_dataframe():
         'Maximum': [22.0, 16.0, 11.0, 50.0, 10.0, 23.0, 17.0, 12.0, 55.0, 11.0]
     })
 
-def create_variables_dataframe():
-    """Create a DataFrame with variables information"""
+def _create_template_example_dataframe():
+    """Create an .xlsx template with example predictions and return bytes."""
+    output = BytesIO()
+    _build_template_example_dataframe().to_excel(output, index=False, engine='openpyxl')
+    return output.getvalue()
+
+def _build_variables_dataframe():
+    """Build a DataFrame with variables information."""
     return pd.DataFrame({
         'Variable': ['temperature_max', 'temperature_min', 'temperature_mean', 'precipitation', 'number_days_rain'],
         'Description': [
@@ -50,8 +58,16 @@ def show_template_modal_dialog():
     with tab1:
         st.markdown("#### Example Data Format")
         st.markdown("Your predictions file should follow this structure:")
-        example_df = create_template_example_dataframe()
-        st.dataframe(example_df, width='stretch', hide_index=True)
+        example_df = _build_template_example_dataframe()
+        st.table(example_df)
+
+        st.download_button(
+            "Download example template (.xlsx)",
+            data=_create_template_example_dataframe(),
+            file_name="monthly_predictions_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="download_example_template_xlsx",
+        )
         
         st.markdown("""
         - **Year**: The year for the prediction
@@ -65,8 +81,8 @@ def show_template_modal_dialog():
     with tab2:
         st.markdown("#### Meteorological Variables")
         st.markdown("Description of all variables used in predictions:")
-        variables_df = create_variables_dataframe()
-        st.dataframe(variables_df, width='stretch', hide_index=True)
+        variables_df = _build_variables_dataframe()
+        st.table(variables_df)
         
         st.warning(
             "⚠️ **Important**: To modify temperature data, you must provide predictions for "
