@@ -61,7 +61,7 @@ def main():
             st.rerun()
     
     # Blue Header with logo
-    logo_path = get_resource_path("assets/logo.png")
+    logo_path = get_resource_path("assets/Portada.png")
     if logo_path.exists():
         st.markdown(f'''
         <div class="blue-header">
