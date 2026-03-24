@@ -24,6 +24,7 @@ with open(config_path, "r") as f:
 from ui.map_component import render_map
 from ui.config_page import render_config_page
 from ui.results_page import render_results_page
+from ui.settings_page import render_settings_page
 from ui.styles.base_styles import apply_base_styles
 
 # Import database initialization
@@ -41,16 +42,21 @@ def main():
     apply_base_styles()
     
     # Initialize session state
+    if 'config' not in st.session_state:
+        st.session_state.config = config
     if 'selected_point' not in st.session_state:
         st.session_state.selected_point = None
     if 'selected_data_source' not in st.session_state:
         st.session_state.selected_data_source = None
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 'map'
+
+    current_config = st.session_state.config
     
     # Menu button in header (visible on all pages)
     if st.button("☰", key="header_menu_button"):
-        pass  # TODO: Implement menu functionality
+        st.session_state.current_page = 'settings'
+        st.rerun()
     
     # Home button in header (visible on all pages except map)
     if st.session_state.current_page != 'map':
@@ -77,11 +83,13 @@ def main():
     
     # Render the appropriate page
     if st.session_state.current_page == 'map':
-        render_map(config)
+        render_map(current_config)
     elif st.session_state.current_page == 'config':
-        render_config_page(config)
+        render_config_page(current_config)
     elif st.session_state.current_page == 'results':
         render_results_page()
+    elif st.session_state.current_page == 'settings':
+        render_settings_page(current_config)
 
 def get_base64_image(image_path):
     """Convert image to base64 for embedding"""

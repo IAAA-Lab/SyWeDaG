@@ -1,0 +1,21 @@
+{
+  "app_name": "meteoZar",
+  "default_map_center": [
+    40.4168,
+    -3.7038
+  ],
+  "default_zoom": 4,
+  "data_sources": [
+    {
+      "name": "AEMET",
+      "country": "Spain",
+      "country_code": "ES",
+      "color": "#FF6B6B",
+      "geojson_path": "assets/geocountries/geoBoundaries-ESP-ADM0_simplified.geojson",
+      "api_url": "https://opendata.aemet.es/opendata/api",
+      "key_url": "https://opendata.aemet.es/centrodedescargas/altaUsuario",
+      "api_key": "",
+      "last_data_year": 1920
+    }
+  ]
+}
