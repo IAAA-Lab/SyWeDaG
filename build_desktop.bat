@@ -66,10 +66,12 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import ui.map_component ^
     --hidden-import ui.config_page ^
     --hidden-import ui.results_page ^
+    --hidden-import ui.settings_page ^
     --hidden-import ui.styles.base_styles ^
     --hidden-import ui.styles.map_styles ^
     --hidden-import ui.styles.config_styles ^
     --hidden-import ui.styles.results_styles ^
+    --hidden-import ui.styles.settings_styles ^
     --hidden-import data_sources ^
     --hidden-import data_sources.aemet_source ^
     --hidden-import data_sources.base_source ^
