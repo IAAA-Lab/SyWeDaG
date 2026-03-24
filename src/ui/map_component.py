@@ -13,6 +13,49 @@ from application.map_services import (
 )
 from ui.styles.map_styles import apply_map_styles
 
+
+def _selected_source_missing_api_key(config):
+    """
+    Check whether currently selected data source requires an API key but has it empty.
+
+    Args:
+        config (dict): Configuration dictionary
+
+    Returns:
+        tuple[bool, str | None]: (is_missing, source_name)
+    """
+    selected_source_name = st.session_state.get("selected_data_source")
+    if not selected_source_name:
+        return False, None
+
+    for source in config.get("data_sources", []):
+        source_name = source.get("name")
+        if source_name == selected_source_name:
+            if "api_key" in source and not str(source.get("api_key", "")).strip():
+                return True, source_name
+            return False, source_name
+
+    return False, None
+
+
+@st.dialog("API Key Required", width="large")
+def show_api_key_required_modal(source_name):
+    """Show modal dialog when selected source requires an API key."""
+    st.markdown(
+        f"El origen de datos **{source_name}** requiere una API key para continuar."
+    )
+    st.markdown("Ve a **Ajustes** e introduce una API key.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("IR A AJUSTES", key="go_settings_from_api_modal", use_container_width=True):
+            st.session_state.current_page = "settings"
+            st.rerun()
+
+    with col2:
+        if st.button("CERRAR", key="close_api_modal", use_container_width=True):
+            st.rerun()
+
 def add_country_polygons(m, config):
     """
     Add semitransparent country polygons to the map from local GeoJSON files
@@ -128,8 +171,12 @@ def render_map(config):
                  disabled=not has_selection,
                  #type="primary" if has_selection else "secondary",
                  use_container_width=False):
-        st.session_state.current_page = 'config'
-        st.rerun()
+        missing_api_key, source_name = _selected_source_missing_api_key(config)
+        if missing_api_key:
+            show_api_key_required_modal(source_name)
+        else:
+            st.session_state.current_page = 'config'
+            st.rerun()
     
     # Get current map state
     center = st.session_state.get('map_center', config.get("default_map_center"))

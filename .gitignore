@@ -14,7 +14,6 @@ dist/
 *.db
 
 # Configuration with sensitive data
-
 .env
 
 # IDE and editor settings
@@ -24,3 +23,6 @@ dist/
 *.log
 *.tmp
 *.bak
+
+# Python virtual environments
+.venv312/
