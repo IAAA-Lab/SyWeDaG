@@ -7,7 +7,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from ui.styles.results_styles import apply_results_styles
-from database.sqliteDB import get_generated_hourly_data, get_generation_job_info, get_monthly_predictions
+from database.sqliteDB import get_generated_hourly_data, get_generation_job_info
+from application.results_services import build_hourly_data_export_zip
+from utils.system_utils import save_bytes_to_downloads
 
 # Parameter display config
 PARAMETER_OPTIONS = {
@@ -108,6 +110,20 @@ def render_results_page():
     if df.empty:
         st.error("No generated data found for this job.")
         return
+
+    zip_bytes, zip_filename = build_hourly_data_export_zip(
+        job_id=job_id,
+        job_info=job_info,
+        nearest_station=nearest_station,
+        records_count=records_count,
+    )
+    if zip_bytes:
+        if st.button("Save results package to Downloads", key="save_results_zip_to_downloads"):
+            try:
+                saved_path = save_bytes_to_downloads(zip_filename, zip_bytes)
+                st.success(f"Saved: {saved_path}")
+            except Exception as error:
+                st.error(f"Error saving results package: {error}")
     
     # ── Chart controls ──────────────────────────────────────────────────
     ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 1])
