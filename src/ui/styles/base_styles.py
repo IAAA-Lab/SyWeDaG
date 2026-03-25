@@ -118,6 +118,43 @@ def apply_base_styles():
         background-color: #f0f0f0 !important;
         opacity: 0.95 !important;
     }
+
+    /* Import button in header (map page only) */
+    .st-key-header_import_button {
+        position: fixed !important;
+        top: 5% !important;
+        left: 15px !important;
+        transform: translateY(-50%) !important;
+        z-index: 112 !important;
+        width: auto !important;
+        height: auto !important;
+    }
+
+    .st-key-header_import_button button {
+        background-color: white !important;
+        color: #0088FF !important;
+        border: none !important;
+        padding: 0 !important;
+        font-size: 3.5vh !important;
+        font-weight: bold !important;
+        border-radius: 50% !important;
+        width: 6vh !important;
+        height: 6vh !important;
+        cursor: pointer !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .st-key-header_import_button button p {
+        font-size: 3vh !important;
+    }
+
+    .st-key-header_import_button button:hover {
+        background-color: #f0f0f0 !important;
+        opacity: 0.95 !important;
+    }
     
     /* Menu button in header */
     .st-key-header_menu_button {
