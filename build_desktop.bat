@@ -26,6 +26,13 @@ if exist data (
 )
 echo.
 
+py -3.12 --version >nul 2>&1
+if errorlevel 1 (
+        echo ERROR: Python 3.12 no esta instalado o no esta disponible con el launcher ^(py -3.12^).
+        pause
+        exit /b 1
+)
+
 echo Starting compilation...
 echo.
 
@@ -85,6 +92,7 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import application ^
     --hidden-import application.map_services ^
     --hidden-import application.config_services ^
+    --hidden-import application.results_services ^
     --hidden-import sklearn ^
     --hidden-import sklearn.neighbors ^
     --hidden-import sklearn.preprocessing ^

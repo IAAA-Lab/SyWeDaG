@@ -7,6 +7,7 @@ from datetime import datetime
 from io import BytesIO
 import pandas as pd
 from ui.styles.config_styles import apply_config_styles
+from utils.system_utils import save_bytes_to_downloads
 from application.config_services import (
     validate_predictions,
     get_mandatory_weather_data,
@@ -61,13 +62,15 @@ def show_template_modal_dialog():
         example_df = _build_template_example_dataframe()
         st.table(example_df)
 
-        st.download_button(
-            "Download example template (.xlsx)",
-            data=_create_template_example_dataframe(),
-            file_name="monthly_predictions_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="download_example_template_xlsx",
-        )
+        template_bytes = _create_template_example_dataframe()
+        template_filename = "monthly_predictions_template.xlsx"
+
+        if st.button("Save template to Downloads", key="save_template_to_downloads"):
+            try:
+                saved_path = save_bytes_to_downloads(template_filename, template_bytes)
+                st.success(f"Saved: {saved_path}")
+            except Exception as error:
+                st.error(f"Error saving template file: {error}")
         
         st.markdown("""
         - **Year**: The year for the prediction
