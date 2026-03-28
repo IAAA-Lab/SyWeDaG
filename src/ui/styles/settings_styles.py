@@ -91,5 +91,22 @@ def apply_settings_styles():
     .stLinkButton button {
         border-radius: 20px !important;
     }
+
+    .st-key-settings_clear_db_button button {
+        background-color: #d22c2c !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 20px !important;
+        padding: 8px 20px !important;
+    }
+
+    .st-key-settings_clear_db_button button:hover {
+        background-color: #b82525 !important;
+    }
+
+    .st-key-settings_clear_db_button button:disabled {
+        background-color: #f2a3a3 !important;
+        color: #ffffff !important;
+    }
     </style>
     """, unsafe_allow_html=True)

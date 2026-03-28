@@ -213,6 +213,52 @@ def init_database():
     createDB()
     createTables()
 
+
+def clear_all_data(reset_sequences: bool = True) -> dict[str, int]:
+    """
+    Delete all records from all application tables.
+
+    Args:
+        reset_sequences: If True, resets AUTOINCREMENT counters in sqlite_sequence.
+
+    Returns:
+        Dictionary with deleted rows by table name.
+    """
+    db_path = get_db_path()
+    conn = sql.connect(str(db_path))
+    c = conn.cursor()
+
+    # Delete children first to avoid FK issues on environments where PRAGMA may vary.
+    tables_in_delete_order = [
+        "Used_in",
+        "GeneratedDataHourly",
+        "GeneratedDataDaily",
+        "MonthlyPredictions",
+        "HistoricalDataDaily",
+        "GenerationJob",
+        "WeatherStations",
+    ]
+
+    deleted_rows = {}
+    try:
+        c.execute("PRAGMA foreign_keys = ON")
+        c.execute("BEGIN")
+
+        for table_name in tables_in_delete_order:
+            c.execute(f"DELETE FROM {table_name}")
+            deleted_rows[table_name] = c.rowcount
+
+        if reset_sequences:
+            c.execute("DELETE FROM sqlite_sequence")
+
+        conn.commit()
+        return deleted_rows
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 # ============================================================================
 # INSERT FUNCTIONS
 # ============================================================================
@@ -330,7 +376,7 @@ def insert_used_in(used_in_data):
 
 def insert_monthly_predictions(predictions_data):
     """
-    Insert multiple monthly predictions (from Excel upload)
+    Insert multiple monthly predictions (from uploaded file)
     
     Args:
         predictions_data: List of tuples (idGenerationJob, year, month, variable, 

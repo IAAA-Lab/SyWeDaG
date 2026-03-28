@@ -9,6 +9,7 @@ import streamlit as st
 
 from ui.styles.settings_styles import apply_settings_styles
 from utils.system_utils import get_resource_path
+from database.sqliteDB import clear_all_data
 
 
 def _get_config_file_path() -> Path:
@@ -106,4 +107,25 @@ def render_settings_page(config: dict):
         else:
             st.error(message)
 
+    st.markdown("### Database Maintenance")
+
+    if st.button(
+        "CLEAR DATABASE",
+        key="settings_clear_db_button",
+        type="secondary",
+        help="Deletes all rows in all database tables.",
+    ):
+        try:
+            clear_all_data(reset_sequences=True)
+
+            # Clear session data that may reference removed records.
+            st.session_state.pop("job_id", None)
+            st.session_state.pop("nearest_station", None)
+            st.session_state.pop("records_count", None)
+
+            st.success(f"Database cleaned successfully.")
+        except Exception as error:
+            st.error(f"Error cleaning database: {error}")
+
     st.markdown('</div>', unsafe_allow_html=True)
+    
