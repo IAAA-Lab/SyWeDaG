@@ -33,10 +33,19 @@ def validate_predictions(df: pd.DataFrame) -> None:
     Raises:
         ValueError: If the format is invalid.
     """
+    # Normalize CSV headers and value types before validation.
+    df.columns = [str(column).strip() for column in df.columns]
+
     required_columns = {"Year", "Month", "Variable", "Minimum", "Mean", "Maximum"}
     missing = required_columns - set(df.columns)
     if missing:
         raise ValueError(f"Missing columns: {missing}")
+
+    df["Variable"] = df["Variable"].astype(str).str.strip()
+    df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
+    df["Month"] = pd.to_numeric(df["Month"], errors="coerce")
+    for column in ["Minimum", "Mean", "Maximum"]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
 
     invalid = set(df["Variable"].unique()) - VALID_PREDICTION_VARIABLES
     if invalid:
@@ -44,11 +53,17 @@ def validate_predictions(df: pd.DataFrame) -> None:
             f"Invalid variables: {invalid}. Valid: {VALID_PREDICTION_VARIABLES}"
         )
 
+    if df["Month"].isna().any():
+        raise ValueError("Month column contains invalid or empty values")
+
     if not all(df["Month"].between(1, 12)):
         raise ValueError("Month values must be between 1 and 12")
 
     if df["Year"].isna().any():
-        raise ValueError("Year column cannot contain empty values")
+        raise ValueError("Year column contains invalid or empty values")
+
+    if not all(df["Month"] % 1 == 0):
+        raise ValueError("Month values must be whole numbers between 1 and 12")
 
     value_columns = ["Minimum", "Mean", "Maximum"]
     for column in value_columns:

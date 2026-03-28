@@ -4,7 +4,6 @@ Configuration page component for MeteoSynthetic
 
 import streamlit as st
 from datetime import datetime
-from io import BytesIO
 import pandas as pd
 from ui.styles.config_styles import apply_config_styles
 from utils.system_utils import save_bytes_to_downloads
@@ -29,11 +28,10 @@ def _build_template_example_dataframe():
         'Maximum': [22.0, 16.0, 11.0, 50.0, 10.0, 23.0, 17.0, 12.0, 55.0, 11.0]
     })
 
-def _create_template_example_dataframe():
-    """Create an .xlsx template with example predictions and return bytes."""
-    output = BytesIO()
-    _build_template_example_dataframe().to_excel(output, index=False, engine='openpyxl')
-    return output.getvalue()
+def _create_template_example_csv_bytes():
+    """Create a .csv template with example predictions and return bytes."""
+    csv_content = _build_template_example_dataframe().to_csv(index=False)
+    return csv_content.encode('utf-8')
 
 def _build_variables_dataframe():
     """Build a DataFrame with variables information."""
@@ -62,8 +60,8 @@ def show_template_modal_dialog():
         example_df = _build_template_example_dataframe()
         st.table(example_df)
 
-        template_bytes = _create_template_example_dataframe()
-        template_filename = "monthly_predictions_template.xlsx"
+        template_bytes = _create_template_example_csv_bytes()
+        template_filename = "monthly_predictions_template.csv"
 
         if st.button("Save template to Downloads", key="save_template_to_downloads"):
             try:
@@ -181,7 +179,7 @@ def render_config_page(config):
     st.markdown("---")
     st.markdown("### Monthly Predictions (Optional)")
     st.markdown(
-        "Upload an Excel file (.xlsx) with monthly predictions. "
+        "Upload a CSV file (.csv) with monthly predictions. "
         "The generated data will be adjusted to match these predictions."
     )
     
@@ -195,13 +193,14 @@ def render_config_page(config):
     with pred_col2:
         uploaded_file = st.file_uploader(
             "Upload filled predictions",
-            type=['xlsx'],
-            help="Upload the filled Excel template with monthly predictions"
+            type=['csv'],
+            help="Upload the filled CSV template with monthly predictions"
         )
     
     if uploaded_file is not None:
         try:
-            predictions_df = pd.read_excel(uploaded_file, engine='openpyxl')
+            # sep=None lets pandas infer comma/semicolon delimiters.
+            predictions_df = pd.read_csv(uploaded_file, sep=None, engine='python')
             validate_predictions(predictions_df)
             st.success(f"✅ Predictions loaded: {len(predictions_df)} entries")
         except ValueError as e:
@@ -218,11 +217,6 @@ def render_config_page(config):
     st.markdown("### Secondary Variables Method")
 
     if predictions_df is not None:
-        _METHOD_OPTIONS = {
-            "K-Nearest Neighbors": "knn",
-            "Machine Learning (XGBoost)": "xgboost",
-        }
-
         _METHOD_DESCRIPTIONS = {
             "K-Nearest Neighbors":
                 "K-Nearest Neighbors (KNN) — Finds the K most similar historical days (by temperature and precipitation) and copies/averages their wind, humidity and pressure values. ✔️ Fast.",
@@ -232,7 +226,7 @@ def render_config_page(config):
         
         selected_method_label = st.radio(
             "Select method:",
-            options=list(_METHOD_OPTIONS.keys()),
+            options=list(METHOD_OPTIONS_MAP.keys()),
             index=1,
             key="correction_method_radio",
             horizontal=True,
