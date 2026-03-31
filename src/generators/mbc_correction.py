@@ -1,5 +1,6 @@
 ﻿"""
-Multivariate Bias Correction (MBCn) for synthetic weather data.
+Multivariate Bias Correction (MBCn) for synthetic weather data. 
+IMPLEMENTED BUT NOT USED.
 
 Corrects inter-variable dependencies after univariate adjustments
 using the xclim.sdba library (MBCn).
@@ -9,16 +10,16 @@ an N-dimensional probability density function transform for climate model
 output to observations. Climate Dynamics, 50(1), 31-49.
 
 Flow:
-    1. Convertir List[Dict] a xr.Dataset con dimension 'time'
-    2. Asignar unidades fisicas (requerido por xclim)
-    3. Detectar variables sin NULLs en historico (solo esas se corrigen)
+    1. Convert List[Dict] to xr.Dataset with 'time' dimension
+    2. Assign physical units (required by xclim)
+    3. Detect variables without NULLs in historical data (only those are corrected)
     4. stack_variables() -> DataArray (time, multivar)
-    5. Para cada mes (1-12): filtrar por mes, entrenar y ajustar MBCn
-       - ref_m = hist_m (todos los anos historicos de ese mes)
-       - sim_m = todos los anos ajustados de ese mes
-    6. Concatenar los 12 meses corregidos y ordenar por fecha
+    5. For each month (1-12): filter by month, train and adjust MBCn
+       - ref_m = hist_m (all historical years for that month)
+       - sim_m = all adjusted years for that month
+    6. Concatenate the 12 corrected months and sort by date
     7. unstack_variables() -> Dataset -> DataFrame -> List[Dict]
-    8. Aplicar restricciones fisicas (max>=mean>=min, precip>=0, etc.)
+    8. Apply physical constraints (max>=mean>=min, precip>=0, etc.)
 """
 
 import warnings
@@ -32,7 +33,7 @@ with warnings.catch_warnings():
     from xclim import sdba
 
 
-# Unidades fisicas por variable (requeridas por xclim)
+# Physical units per variable (required by xclim)
 _UNITS: Dict[str, str] = {
     'temperature_min':  'degC',
     'temperature_max':  'degC',
@@ -50,18 +51,18 @@ _UNITS: Dict[str, str] = {
 
 class MBCnCorrector:
     """
-    Correccion multivariada MBCn mes a mes.
+    Month-by-month multivariate MBCn correction.
 
-    Para cada uno de los 12 meses:
-      - ref_m / hist_m = todos los dias historicos de ese mes (todos los anos)
-      - sim_m          = todos los dias ajustados de ese mes (todos los anos sim)
+        For each of the 12 months:
+            - ref_m / hist_m = all historical days for that month (all years)
+            - sim_m          = all adjusted days for that month (all simulation years)
 
-    Esto garantiza coherencia estacional: enero se corrige contra eneros
-    historicos, agosto contra agostos historicos.
+    This guarantees seasonal coherence: January is corrected against historical
+    Januaries, August against historical Augusts.
 
-    Los campos no meteorologicos (hour_*, wind_direction, source, id_station...)
-    se preservan intactos: solo se re-escriben las variables numericas de
-    VARIABLES_METEO que existan sin NULLs en el historico.
+    Non-meteorological fields (hour_*, wind_direction, source, id_station...)
+    are preserved as-is: only numeric VARIABLES_METEO variables without NULLs
+    in historical data are overwritten.
     """
 
     VARIABLES_METEO = list(_UNITS.keys())
@@ -69,13 +70,13 @@ class MBCnCorrector:
     def __init__(self, n_iter: int = 20):
         """
         Args:
-            n_iter: Numero de iteraciones de rotacion MBCn (default 20).
-                    10 rapido, 20 equilibrio, 50 muy costoso.
+            n_iter: Number of MBCn rotation iterations (default 20).
+                    10 fast, 20 balanced, 50 very expensive.
         """
         self.n_iter = n_iter
 
     # ================================================================
-    # Punto de entrada
+    # Entry point
     # ================================================================
 
     def correct(
@@ -84,24 +85,24 @@ class MBCnCorrector:
         historical_data: List[Dict]
     ) -> List[Dict]:
         """
-        Aplica MBCn mes a mes y devuelve los datos corregidos.
+        Apply month-by-month MBCn and return corrected data.
 
         Args:
-            adjusted_data:   Datos generados ya ajustados univariadamente.
-            historical_data: Datos historicos originales (referencia).
+            adjusted_data:   Generated data already adjusted univariately.
+            historical_data: Original historical data (reference).
 
         Returns:
-            Lista de registros con la estructura de dependencia multivariada
-            corregida y restricciones fisicas aplicadas.
+            List of records with corrected multivariate dependency structure
+            and physical constraints applied.
         """
-        # -- 1. Convertir a DataFrames --------------------------------
+        # -- 1. Convert to DataFrames ----------------------------------
         df_adj  = pd.DataFrame(adjusted_data).copy()
         df_hist = pd.DataFrame(historical_data).copy()
 
         df_adj['date']  = pd.to_datetime(df_adj['date'])
         df_hist['date'] = pd.to_datetime(df_hist['date'])
 
-        # -- 2. Detectar variables validas (sin NULLs en historico) --
+        # -- 2. Detect valid variables (without NULLs in historical data) --
         valid_vars = [
             v for v in self.VARIABLES_METEO
             if v in df_hist.columns
@@ -110,12 +111,12 @@ class MBCnCorrector:
         ]
 
         if len(valid_vars) < 2:
-            print("   Warning: Menos de 2 variables validas para MBCn, se omite")
+            print("   Warning: Fewer than 2 valid variables for MBCn, skipping")
             return adjusted_data
 
-        print(f"   Variables incluidas en MBCn ({len(valid_vars)}): {valid_vars}")
+        print(f"   Variables included in MBCn ({len(valid_vars)}): {valid_vars}")
 
-        # -- 3. Construir xr.Datasets con dimension 'time' -----------
+        # -- 3. Build xr.Datasets with 'time' dimension ---------------
         ds_hist = (
             df_hist.set_index('date')[valid_vars]
             .to_xarray()
@@ -127,21 +128,21 @@ class MBCnCorrector:
             .rename({'date': 'time'})
         )
 
-        # -- 4. Asignar unidades fisicas (obligatorio para xclim) ----
+        # -- 4. Assign physical units (required for xclim) ------------
         for ds in [ds_hist, ds_adj]:
             for var in valid_vars:
                 ds[var].attrs['units'] = _UNITS[var]
 
         # -- 5. Stack -> DataArray (time, multivar) ------------------
-        #   sdba.stack_variables apila las variables del Dataset en una
-        #   nueva dimension 'multivar', generando el formato que MBCn espera.
+        #   sdba.stack_variables stacks Dataset variables into a new
+        #   'multivar' dimension, generating the format MBCn expects.
         ref_all = sdba.stack_variables(ds_hist)   # (time_hist, n_vars)
         sim_all = sdba.stack_variables(ds_adj)    # (time_adj,  n_vars)
 
-        # -- 6. MBCn mes a mes ---------------------------------------
-        #   xclim NO admite group='time.month' dentro de MBCn (lanza
-        #   NotImplementedError), asi que hacemos el bucle mensual
-        #   filtrando los DataArrays manualmente.
+        # -- 6. Month-by-month MBCn -----------------------------------
+        #   xclim does NOT support group='time.month' inside MBCn (it raises
+        #   NotImplementedError), so we run a monthly loop and filter
+        #   DataArrays manually.
         corrected_months: List[xr.DataArray] = []
         months_ok = 0
 
@@ -151,34 +152,34 @@ class MBCnCorrector:
 
             if len(ref_m.time) < 10 or len(sim_m.time) < 5:
                 corrected_months.append(sim_m)
-                print(f"   Mes {m:02d}: datos insuficientes "
-                      f"(ref={len(ref_m.time)}, sim={len(sim_m.time)}), se omite")
+                print(f"   Month {m:02d}: insufficient data "
+                        f"(ref={len(ref_m.time)}, sim={len(sim_m.time)}), skipped")
                 continue
 
             try:
-                # train(ref, hist) -- ref == hist porque no tenemos
-                # un modelo climatico separado; MBCn aprende la estructura
-                # de dependencia del historico y la transfiere a sim.
+                # train(ref, hist) -- ref == hist because we do not have
+                # a separate climate model; MBCn learns historical dependency
+                # structure and transfers it to sim.
                 mbcn = sdba.adjustment.MBCn.train(
                     ref=ref_m,
                     hist=sim_m,
                     n_iter=self.n_iter,
-                    n_escore=20   # deshabilitar energy score (causa out-of-bounds
-                )                # con arrays pequenos en xclim 0.55)
+                    n_escore=20   # disable energy score (causes out-of-bounds
+                )                # with small arrays in xclim 0.55)
 
-                # adjust(sim, ref, hist) -- xclim necesita ref e hist
-                # tambien en el ajuste para las rotaciones aleatorias internas.
+                # adjust(sim, ref, hist) -- xclim needs ref and hist
+                # during adjustment for internal random rotations.
                 corrected_m = mbcn.adjust(sim_m, ref_m, sim_m)
                 corrected_months.append(corrected_m)
                 months_ok += 1
 
             except Exception as e:
-                print(f"   Error MBCn mes {m:02d}: {e}")
+                print(f"   MBCn error month {m:02d}: {e}")
                 corrected_months.append(sim_m)
 
-        print(f"   MBCn aplicado a {months_ok}/12 meses")
+        print(f"   MBCn applied to {months_ok}/12 months")
 
-        # -- 7. Reunir los 12 meses y volver a List[Dict] ------------
+        # -- 7. Merge all 12 months back to List[Dict] ----------------
         corrected_all = xr.concat(corrected_months, dim='time').sortby('time')
         ds_final      = sdba.unstack_variables(corrected_all)
 
@@ -189,7 +190,7 @@ class MBCnCorrector:
         )
         df_final['date'] = df_final['date'].dt.strftime('%Y-%m-%d')
 
-        # Fusionar: preservar columnas no-MBCn (hour_*, wind_direction, etc.)
+        # Merge: preserve non-MBCn columns (hour_*, wind_direction, etc.)
         df_result = df_adj.copy()
         df_result['date'] = df_result['date'].dt.strftime('%Y-%m-%d')
         df_result = df_result.set_index('date')
@@ -197,18 +198,18 @@ class MBCnCorrector:
         df_result.update(df_final)   # sobreescribe solo las columnas de valid_vars
         result_records = df_result.reset_index().to_dict('records')
 
-        # -- 8. Restricciones fisicas --------------------------------
+        # -- 8. Physical constraints ----------------------------------
         #self._apply_constraints(result_records)
 
         return result_records
 
     # ================================================================
-    # Restricciones fisicas
+    # Physical constraints
     # ================================================================
 
     def _apply_constraints(self, records: List[Dict]) -> None:
         """
-        Aplica restricciones fisicas in-place tras la correccion MBCn.
+        Apply in-place physical constraints after MBCn correction.
         """
         for rec in records:
             if rec.get('precipitation') is not None:

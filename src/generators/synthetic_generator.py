@@ -32,25 +32,25 @@ from generators.xgboost_model import XGBoostWeatherModel
 
 class SyntheticWeatherGenerator:
     """
-    Generador de datos meteorológicos sintéticos.
-    
-    Cicla datos históricos diarios para el período de generación,
-    los ajusta a predicciones mensuales (si se proporcionan),
-    y genera datos horarios interpolados.
+    Synthetic weather data generator.
+
+    Cycles historical daily data for the generation period,
+    adjusts it to monthly predictions (if provided),
+    and generates interpolated hourly data.
     """
     
     def __init__(self, source: str, id_station, historical_start: str, 
                  historical_end: str, generation_start: str, generation_end: str):
         """
-        Inicializa el generador.
+        Initialize the generator.
         
         Args:
-            source: Fuente de datos (ej: 'AEMET')
-            id_station: ID de la estación
-            historical_start: Fecha inicio históricos (YYYY-MM-DD)
-            historical_end: Fecha fin históricos (YYYY-MM-DD)
-            generation_start: Fecha inicio generación (YYYY-MM-DD)
-            generation_end: Fecha fin generación (YYYY-MM-DD)
+            source: Data source (e.g., 'AEMET')
+            id_station: Station ID
+            historical_start: Historical start date (YYYY-MM-DD)
+            historical_end: Historical end date (YYYY-MM-DD)
+            generation_start: Generation start date (YYYY-MM-DD)
+            generation_end: Generation end date (YYYY-MM-DD)
         """
         self.source = source
         self.id_station = id_station
@@ -59,7 +59,7 @@ class SyntheticWeatherGenerator:
         self.generation_start = generation_start
         self.generation_end = generation_end
         
-        # Cargar datos históricos DIARIOS
+        # Load DAILY historical data
         self.historical_data = get_historical_daily_data(
             source=source,
             id_station=id_station,
@@ -73,10 +73,10 @@ class SyntheticWeatherGenerator:
                 f"in period {historical_start} to {historical_end}"
             )
         
-        # Ordenar por fecha
+        # Sort by date
         self.historical_data.sort(key=lambda x: x['date'])
         
-        print(f"📊 Datos históricos diarios cargados: {len(self.historical_data)} registros")
+        print(f"📊 Historical daily data loaded: {len(self.historical_data)} records")
     
     # ========================================================================
     # STEP 1: Cycle daily records
@@ -84,20 +84,20 @@ class SyntheticWeatherGenerator:
     
     def _generate_daily_synthetic(self) -> List[Dict]:
         """
-        Genera datos diarios sintéticos ciclando los históricos por mes-día.
-        
-        Para cada fecha a generar, busca el mismo mes-día en los años históricos
-        y cicla entre los años disponibles.
+        Generate synthetic daily data by cycling historical records by month-day.
+
+        For each target date, find the same month-day in historical years
+        and cycle across available years.
         
         Returns:
-            Lista de diccionarios con datos diarios sintéticos
+            List of dictionaries with synthetic daily data
         """
         generated_daily = []
         
         gen_start = datetime.strptime(self.generation_start, '%Y-%m-%d')
         gen_end = datetime.strptime(self.generation_end, '%Y-%m-%d')
         
-        # Indexar históricos por mes-día y año
+        # Index historical records by month-day and year
         records_by_month_day = {}
         for record in self.historical_data:
             record_date = datetime.strptime(record['date'], '%Y-%m-%d')
@@ -126,44 +126,44 @@ class SyntheticWeatherGenerator:
                 if available_years:
                     # TODO dejar aleatorio
                     #year_index = random.randint(0, len(available_years) - 1)
-                    # CICLO: usa modulo para recorrer los años disponibles de forma determinista
-                    # Sin esto (con random.randint()), los datos se distribuían aleatoriamente,
-                    # ahora se cicla por año histórico para facilitar debugging
+                    # CYCLE: use modulo to iterate available years deterministically
+                    # Without this (with random.randint()), data was distributed randomly,
+                    # now it cycles by historical year to simplify debugging
                     year_index = (occurrence_count - 1) % len(available_years)
                     selected_year = available_years[year_index]
                     source_record = records_by_month_day[month_day_key][selected_year]
             
-            # Caso especial: 29 de febrero
+            # Special case: February 29
             if source_record is None and current_date.month == 2 and current_date.day == 29:
                 alt_key = "02-28"
                 if alt_key in records_by_month_day:
                     available_years = sorted(records_by_month_day[alt_key].keys())
                     # TODO dejar aleatorio
                     #year_index = random.randint(0, len(available_years) - 1)
-                    # CICLO: usa modulo para recorrer los años disponibles de forma determinista
-                    # Sin esto (con random.randint()), los datos se distribuían aleatoriamente,
-                    # ahora se cicla por año histórico para facilitar debugging
+                    # CYCLE: use modulo to iterate available years deterministically
+                    # Without this (with random.randint()), data was distributed randomly,
+                    # now it cycles by historical year to simplify debugging
                     year_index = (occurrence_count - 1) % len(available_years)
                     selected_year = available_years[year_index]
                     source_record = records_by_month_day[alt_key][selected_year]
             
-            # Fallback: usar ciclo sobre todos los datos históricos
+            # Fallback: cycle over all historical records
             if source_record is None:
                 # TODO dejar aleatorio
                 #idx = random.randint(0, len(self.historical_data) - 1)
-                # CICLO: en lugar de random.randint(), usa modulo para ciclar determinísticamente
+                # CYCLE: instead of random.randint(), use modulo for deterministic cycling
                 idx = (occurrence_count - 1) % len(self.historical_data)
                 source_record = self.historical_data[idx]
             
-            # Copiar registro con nueva fecha
+            # Copy record with new date
             new_record = source_record.copy()
             new_record['date'] = current_date.strftime('%Y-%m-%d')
             generated_daily.append(new_record)
             
             current_date += timedelta(days=1)
         
-        # 📊 Registros diarios sintéticos generados por ciclo histórico
-        print(f"📅 Ciclo completado: {len(generated_daily)} registros diarios generados")
+        # 📊 Synthetic daily records generated from historical cycle
+        print(f"📅 Cycle completed: {len(generated_daily)} daily records generated")
         return generated_daily
     
     # ========================================================================
@@ -173,30 +173,30 @@ class SyntheticWeatherGenerator:
     def _adjust_to_monthly_predictions(self, daily_data: List[Dict], 
                                        predictions_df: pd.DataFrame) -> List[Dict]:
         """
-        Ajusta los datos diarios históricos para que coincidan con las predicciones mensuales.
+        Adjust historical daily data to match monthly predictions.
         
-        Para temperaturas:
-        - Calcula estadísticas mensuales de los históricos
-        - Aplica diferencias a cada día del mes
-        - Verifica límites individuales (min/max) para cada temperatura
-        - Compensa en extremo opuesto cuando se exceden límites
-        - Fuerza orden: Tmax >= Tmean >= Tmin
-        
-        Para precipitación:
-        - Aplica factor multiplicativo
-        - Si predicción=0, pone todos los días a 0
-        - Si histórico=0 pero predicción>0, genera 2 períodos de lluvia
+        For temperatures:
+        - Compute monthly historical statistics
+        - Apply differences to each day of the month
+        - Check individual limits (min/max) for each temperature
+        - Compensate on the opposite extreme when limits are exceeded
+        - Enforce order: Tmax >= Tmean >= Tmin
+
+        For precipitation:
+        - Apply multiplicative factor
+        - If prediction=0, set all days to 0
+        - If historical=0 but prediction>0, generate 2 rain periods
         
         Args:
-            daily_data: Lista de registros diarios
-            predictions_df: DataFrame con predicciones mensuales (formato long)
+            daily_data: List of daily records
+            predictions_df: DataFrame with monthly predictions (long format)
             
         Returns:
-            Lista de registros diarios ajustados
+            List of adjusted daily records
         """
         adjusted_data = [record.copy() for record in daily_data]
         
-        # Crear índice de predicciones para búsqueda O(1): (year, month, variable) -> predicción
+        # Build prediction index for O(1) lookup: (year, month, variable) -> prediction
         predictions_index = {}
         for _, row in predictions_df.iterrows():
             year = int(row['Year'])
@@ -209,7 +209,7 @@ class SyntheticWeatherGenerator:
                 'max': row.get('Maximum')
             }
         
-        # Agrupar registros diarios por año-mes
+        # Group daily records by year-month
         daily_by_month = {}
         for i, record in enumerate(adjusted_data):
             date = datetime.strptime(record['date'], '%Y-%m-%d')
@@ -218,15 +218,15 @@ class SyntheticWeatherGenerator:
                 daily_by_month[month_key] = []
             daily_by_month[month_key].append(i)
         
-        # Procesar cada mes
+        # Process each month
         for (year, month), indices in daily_by_month.items():
             # ============================================================
-            # TEMPERATURAS - Lógica mejorada con verificación individual
+            # TEMPERATURES - Improved logic with per-record validation
             # ============================================================
             self._adjust_temperatures_for_month(adjusted_data, indices, predictions_index, year, month)
             
             # ============================================================
-            # PRECIPITACIÓN
+            # PRECIPITATION
             # ============================================================
             self._adjust_precipitation_for_month(adjusted_data, indices, predictions_index, year, month)
         
@@ -234,14 +234,14 @@ class SyntheticWeatherGenerator:
     
     def _get_variable_stats(self, pred_df: pd.DataFrame, variable_name: str) -> Dict:
         """
-        Extrae estadísticas (min, mean, max) de una variable del DataFrame en formato long.
+        Extract variable statistics (min, mean, max) from long-format DataFrame.
         
         Args:
             pred_df: DataFrame filtrado por mes (Year, Month, Variable, Minimum, Mean, Maximum)
-            variable_name: Nombre de la variable a buscar (ej: 'temperature_max', 'precipitation')
+            variable_name: Variable name to search (e.g., 'temperature_max', 'precipitation')
             
         Returns:
-            Dict con 'min', 'mean', 'max' o None si no se encuentra
+            Dict with 'min', 'mean', 'max' or None if not found
         """
         var_row = pred_df[pred_df['Variable'] == variable_name]
         if var_row.empty:
@@ -259,16 +259,16 @@ class SyntheticWeatherGenerator:
                                           predictions_index: Dict,
                                           year: int, month: int):
         """
-        Ajuste de temperaturas con verificación individual de límites.
+        Temperature adjustment with per-record limit validation.
         
         Args:
-            daily_data: Lista completa de registros diarios (se modifica in-place)
-            indices: Índices de los días de este mes
-            predictions_index: Diccionario (year, month, variable) -> {mean, min, max}
-            year: Año del mes
-            month: Mes (1-12)
+            daily_data: Full list of daily records (modified in-place)
+            indices: Indices of the days in this month
+            predictions_index: Dictionary (year, month, variable) -> {mean, min, max}
+            year: Year of the month
+            month: Month (1-12)
         """
-        # Obtener predicciones para este mes
+        # Get predictions for this month
         tmax_pred = predictions_index.get((year, month, 'temperature_max'))
         tmean_pred = predictions_index.get((year, month, 'temperature_mean'))
         tmin_pred = predictions_index.get((year, month, 'temperature_min'))
@@ -276,11 +276,11 @@ class SyntheticWeatherGenerator:
         if not all([tmax_pred, tmean_pred, tmin_pred]):
             return
         
-        # Validar que tengan la media
+        # Validate that mean values exist
         if any(pd.isna(pred.get('mean')) for pred in [tmax_pred, tmean_pred, tmin_pred]):
             return
         
-        # Calcular estadísticas mensuales de los históricos actuales
+        # Compute monthly statistics of current historical values
         tmax_values = [daily_data[i].get('temperature_max') for i in indices if daily_data[i].get('temperature_max') is not None]
         tmean_values = [daily_data[i].get('temperature_mean') for i in indices if daily_data[i].get('temperature_mean') is not None]
         tmin_values = [daily_data[i].get('temperature_min') for i in indices if daily_data[i].get('temperature_min') is not None]
@@ -292,12 +292,12 @@ class SyntheticWeatherGenerator:
         hist_tmean_mean = np.mean(tmean_values)
         hist_tmin_mean = np.mean(tmin_values)
         
-        # Calcular diferencias (predicción - histórico)
+        # Compute differences (prediction - historical)
         diff_tmax = tmax_pred['mean'] - hist_tmax_mean
         diff_tmean = tmean_pred['mean'] - hist_tmean_mean
         diff_tmin = tmin_pred['mean'] - hist_tmin_mean
         
-        # Extraer límites de predicción
+        # Extract prediction bounds
         tmax_min = float(tmax_pred['min']) if pd.notna(tmax_pred.get('min')) else None
         tmax_max = float(tmax_pred['max']) if pd.notna(tmax_pred.get('max')) else None
         tmean_min = float(tmean_pred['min']) if pd.notna(tmean_pred.get('min')) else None
@@ -305,7 +305,7 @@ class SyntheticWeatherGenerator:
         tmin_min = float(tmin_pred['min']) if pd.notna(tmin_pred.get('min')) else None
         tmin_max = float(tmin_pred['max']) if pd.notna(tmin_pred.get('max')) else None
         
-        # Ajustar cada día individualmente
+        # Adjust each day individually
         for idx in indices:
             record = daily_data[idx]
             
@@ -316,49 +316,32 @@ class SyntheticWeatherGenerator:
             if tmax is None or tmean is None or tmin is None:
                 continue
             
-            # Aplicar diferencias
+            # Apply differences
             new_tmax = tmax + diff_tmax
             new_tmean = tmean + diff_tmean
             new_tmin = tmin + diff_tmin
             
-            # Ajustar Tmax a sus límites
-            # TODO Eliminar comentado
+            # Adjust Tmax to its bounds
             if tmax_max is not None and new_tmax > tmax_max:
-                #excess = new_tmax - tmax_max
                 new_tmax = tmax_max
-                #new_tmin -= excess
-                #if tmin_min is not None and new_tmin < tmin_min:
-                #    new_tmin = tmin_min
             
             if tmax_min is not None and new_tmax < tmax_min:
-                #deficit = tmax_min - new_tmax
                 new_tmax = tmax_min
-                #new_tmin += deficit
-                #if tmin_max is not None and new_tmin > tmin_max:
-                #    new_tmin = tmin_max
             
-            # Ajustar Tmin a sus límites
+            # Adjust Tmin to its bounds
             if tmin_max is not None and new_tmin > tmin_max:
-                #excess = new_tmin - tmin_max
                 new_tmin = tmin_max
-                #new_tmax += excess
-                #if tmax_max is not None and new_tmax > tmax_max:
-                #    new_tmax = tmax_max
             
             if tmin_min is not None and new_tmin < tmin_min:
-                #deficit = tmin_min - new_tmin
                 new_tmin = tmin_min
-                #new_tmax -= deficit
-                #if tmax_min is not None and new_tmax < tmax_min:
-                #    new_tmax = tmax_min
             
-            # Ajustar Tmean a sus límites
+            # Adjust Tmean to its bounds
             if tmean_max is not None and new_tmean > tmean_max:
                 new_tmean = tmean_max
             if tmean_min is not None and new_tmean < tmean_min:
                 new_tmean = tmean_min
             
-            # Forzar orden: Tmax >= Tmean >= Tmin
+            # Enforce order: Tmax >= Tmean >= Tmin
             if new_tmean > new_tmax:
                 avg = (new_tmean + new_tmax) / 2.0
                 new_tmean = avg
@@ -374,7 +357,7 @@ class SyntheticWeatherGenerator:
                 new_tmax = avg
                 new_tmin = avg
             
-            # Guardar valores ajustados con 1 decimal
+            # Save adjusted values with 1 decimal
             record['temperature_max'] = round(new_tmax, 1)
             record['temperature_mean'] = round(new_tmean, 1)
             record['temperature_min'] = round(new_tmin, 1)
@@ -384,17 +367,17 @@ class SyntheticWeatherGenerator:
                                            predictions_index: Dict,
                                            year: int, month: int):
         """
-        Dispatcher de ajuste de precipitación para un mes específico.
+        Precipitation-adjustment dispatcher for a specific month.
 
-        Si hay predicción de 'number_days_rain', usa la ruta avanzada (Fases 0-4).
-        En caso contrario, usa la ruta simple (factor multiplicativo).
+        If there is a 'number_days_rain' prediction, use the advanced path (Phases 0-4).
+        Otherwise, use the simple path (multiplicative factor).
 
         Args:
-            daily_data: Lista completa de registros diarios (se modifica in-place)
-            indices: Índices de los días de este mes
-            predictions_index: Diccionario (year, month, variable) -> {mean, min, max}
-            year: Año del mes
-            month: Mes (1-12)
+            daily_data: Full list of daily records (modified in-place)
+            indices: Indices of this month's days
+            predictions_index: Dictionary (year, month, variable) -> {mean, min, max}
+            year: Year of the month
+            month: Month (1-12)
         """
         prec_pred = predictions_index.get((year, month, 'precipitation'))
         if not prec_pred:
@@ -416,58 +399,58 @@ class SyntheticWeatherGenerator:
 
         self._adjust_precipitation_simple(daily_data, indices, pred_prec_mean, prec_pred)
 
-    # ---- ruta simple (solo precipitación) ----------------------------------
+    # ---- simple path (precipitation only) -----------------------------------
 
     def _adjust_precipitation_simple(self, daily_data: List[Dict],
                                      indices: List[int],
                                      pred_prec_mean: float,
                                      prec_pred: Dict):
         """
-        Ajuste simple de precipitación mediante factor multiplicativo.
+        Simple precipitation adjustment using a multiplicative factor.
 
-        Casos:
-        - pred == 0  → todos los días a 0
-        - hist == 0  → generar 2 períodos de lluvia con valor mínimo de predicción
-        - else       → factor multiplicativo
+        Cases:
+        - pred == 0  -> all days set to 0
+        - hist == 0  -> generate 2 rain periods with prediction minimum value
+        - else       -> multiplicative factor
         """
         prec_values = [daily_data[i].get('precipitation', 0) or 0 for i in indices]
         hist_prec_mean = np.mean(prec_values)
         
-        # CASO 1: Predicción es 0 -> todos los días a 0
+        # CASE 1: Prediction is 0 -> set all days to 0
         if pred_prec_mean == 0:
             for idx in indices:
                 daily_data[idx]['precipitation'] = 0.0
             return
         
-        # CASO 2: Histórico es 0 pero predicción > 0 -> generar períodos de lluvia
-        # En este caso, usar el MÍNIMO de la predicción en lugar de la media
+        # CASE 2: Historical is 0 but prediction > 0 -> generate rain periods
+        # In this case, use prediction MINIMUM instead of mean
         if hist_prec_mean == 0:
             pred_prec_min = prec_pred.get('min')
             
-            # Si no hay mínimo definido, usar la media como fallback
+            # If no minimum is defined, use mean as fallback
             if pred_prec_min is None or pd.isna(pred_prec_min):
                 target_prec = pred_prec_mean
-                target_label = "media"
+                target_label = "mean"
             else:
                 target_prec = float(pred_prec_min)
-                target_label = "mínimo"
+                target_label = "minimum"
 
             first_date = datetime.strptime(daily_data[indices[0]]['date'], '%Y-%m-%d')
-            month_names = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-                           'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-            print(f"🌧️ Generando 2 períodos de lluvia para "
+            month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December']
+            print(f"🌧️ Generating 2 rain periods for "
                   f"{month_names[first_date.month - 1]} {first_date.year} "
-                  f"({target_label}: {target_prec:.1f} mm/día)")
+                f"({target_label}: {target_prec:.1f} mm/day)")
             self._generate_rain_periods(daily_data, indices, target_prec)
             return
         
-        # CASO 3: Aplicar factor multiplicativo
+        # CASE 3: Apply multiplicative factor
         factor = pred_prec_mean / hist_prec_mean
         for idx in indices:
             current_prec = daily_data[idx].get('precipitation', 0) or 0
             daily_data[idx]['precipitation'] = round(current_prec * factor, 1)
 
-    # ---- ruta avanzada (precipitación + número de días) --------------------
+    # ---- advanced path (precipitation + rainy-day count) -------------------
 
     def _adjust_precipitation_advanced(self, daily_data: List[Dict],
                                        indices: List[int],
@@ -476,72 +459,55 @@ class SyntheticWeatherGenerator:
                                        days_rain_pred: Dict,
                                        year: int, month: int):
         """
-        Ajuste avanzado de precipitación en 4 fases:
-          0. Caso trivial: pred==0 o días==0 → todo a 0
-          1. Escanear estado actual del mes
-          2. Validar vs predicciones (déficit / exceso de días)
-          3. Ajustar número de días lluviosos (añadir o eliminar)
-          4. Factor multiplicativo para alcanzar la precipitación objetivo exacta
+        Advanced precipitation adjustment in 4 phases:
+            0. Trivial case: pred==0 or days==0 -> set all to 0
+            1. Scan current month state
+            2. Validate vs predictions (day deficit / excess)
+            3. Adjust rainy-day count (add or remove)
+            4. Multiplicative factor to match exact target precipitation
         """
-        first_date = datetime.strptime(daily_data[indices[0]]['date'], '%Y-%m-%d')
-        month_names = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-                       'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-        period_label = f"{month_names[first_date.month - 1]} {first_date.year}"
-        
-        # Fase 0: casos triviales
+        # Phase 0: trivial cases
         pred_days_mean = float(days_rain_pred.get('mean'))
-        #print(f"\n🌧️ === AJUSTE AVANZADO: {period_label} ===")
-        #print(f"   Predicción: {pred_prec_mean:.1f} mm/día, {pred_days_mean:.1f} días lluvia")
-        
+
         if pred_prec_mean == 0 or pred_days_mean == 0:
-            #print(f"   ⚠️  FASE 0: Predicción nula → todos los días a 0")
             for idx in indices:
                 daily_data[idx]['precipitation'] = 0.0
             return
 
-        # Fase 1: escanear mes
-        #print(f"\n   📊 FASE 1: Escanear precipitación actual...")
+        # Phase 1: scan month
         analysis = self._scan_month_rainfall(daily_data, indices)
 
-        # Si no hay lluvia histórica, generar períodos base antes de ajustar días
+        # If there is no historical rain, generate baseline periods before day adjustment
         if analysis['rainy_days'] == 0:
-            #print(f"      ⚠️  Sin lluvia histórica → generando períodos base...")
             self._generate_rain_periods(daily_data, indices, pred_prec_mean)
             analysis = self._scan_month_rainfall(daily_data, indices)
 
-        # Fase 2: validar vs predicción
-        #print(f"\n   ✓ FASE 2: Validar número de días...")
+        # Phase 2: validate number of days against prediction
         validation = self._validate_month_rainfall(analysis, days_rain_pred)
         days_status = validation['days_status']
 
-        # Fase 3: ajustar número de días lluviosos
-        #print(f"\n   ⚙️  FASE 3: Ajustar días lluviosos...")
+        # Phase 3: adjust rainy-day count
         if days_status['deficit'] > 0:
-            #print(f"      Faltan {days_status['deficit']} día(s) de lluvia → AÑADIR")
             self._add_rainy_days(daily_data, indices, analysis, days_status['deficit'])
         elif days_status['excess'] > 0:
-            #print(f"      Sobran {days_status['excess']} día(s) de lluvia → ELIMINAR")
             self._remove_rainy_days(daily_data, indices, analysis, days_status['excess'])
-        #else:
-            #print(f"      OK - Número de días correcto")
 
-        # Fase 4: factor multiplicativo con matriz combinada días × precipitación
-        #print(f"\n   📐 FASE 4: Factor multiplicativo (matriz combinada)...")
+        # Phase 4: multiplicative factor with combined days x precipitation matrix
         days_in_month = len(indices)
 
-        # Estado FINAL de días tras Fase 3
+        # FINAL day-state after Phase 3
         current_days = sum(1 for idx in indices if (daily_data[idx].get('precipitation', 0) or 0) > 0)
         pred_days_min = float(days_status['min']) if days_status['min'] is not None else pred_days_mean
         pred_days_max = float(days_status['max']) if days_status['max'] is not None else pred_days_mean
 
         if current_days <= pred_days_min:
-            days_state = "EN_MINIMO"
+            days_state = "AT_MINIMUM"
         elif current_days >= pred_days_max:
-            days_state = "EN_MAXIMO"
+            days_state = "AT_MAXIMUM"
         else:
-            days_state = "EN_RANGO"
+            days_state = "IN_RANGE"
 
-        # Totales de precipitación objetivo
+        # Target precipitation totals
         pred_prec_min = prec_pred.get('min')
         pred_prec_max = prec_pred.get('max')
         pred_prec_min = float(pred_prec_min) if pred_prec_min is not None and not pd.isna(pred_prec_min) else pred_prec_mean
@@ -554,70 +520,59 @@ class SyntheticWeatherGenerator:
         actual_total = sum(daily_data[idx].get('precipitation', 0) or 0 for idx in indices)
 
         if actual_total < min_total:
-            precip_state = "BAJO_MIN"
+            precip_state = "BELOW_MIN"
         elif actual_total > max_total:
-            precip_state = "SOBRE_MAX"
+            precip_state = "ABOVE_MAX"
         else:
-            precip_state = "EN_RANGO"
-
-        #print(f"      Estado días:   {days_state} ({current_days} días, rango [{pred_days_min:.0f}–{pred_days_max:.0f}])")
-        #print(f"      Estado precip: {precip_state} ({actual_total:.1f} mm, rango [{min_total:.1f}–{max_total:.1f}], media {mean_total:.1f})")
+            precip_state = "IN_RANGE"
 
         # Matriz combinada → target_total
-        if days_state == "EN_MINIMO":
-            if precip_state == "BAJO_MIN":
+        if days_state == "AT_MINIMUM":
+            if precip_state == "BELOW_MIN":
                 target_total = min_total
-            elif precip_state == "SOBRE_MAX":
+            elif precip_state == "ABOVE_MAX":
                 target_total = mean_total
-            else:  # EN_RANGO
+            else:  # IN_RANGE
                 target_total = actual_total
-        elif days_state == "EN_MAXIMO":
-            if precip_state == "BAJO_MIN":
+        elif days_state == "AT_MAXIMUM":
+            if precip_state == "BELOW_MIN":
                 target_total = mean_total
-            elif precip_state == "SOBRE_MAX":
+            elif precip_state == "ABOVE_MAX":
                 target_total = max_total
-            else:  # EN_RANGO
+            else:  # IN_RANGE
                 target_total = actual_total
-        else:  # EN_RANGO
-            if precip_state == "BAJO_MIN":
+        else:  # IN_RANGE
+            if precip_state == "BELOW_MIN":
                 target_total = min_total
-            elif precip_state == "SOBRE_MAX":
+            elif precip_state == "ABOVE_MAX":
                 target_total = max_total
-            else:  # EN_RANGO
+            else:  # IN_RANGE
                 target_total = actual_total
 
-        #print(f"      Objetivo total: {target_total:.1f} mm, Actual: {actual_total:.1f} mm")
-
+        # No rain after removing days -> generating emergency periods
         if actual_total == 0 and target_total > 0:
-            #print(f"      ⚠️  Sin lluvia tras eliminar días → generando períodos de emergencia")
             self._generate_rain_periods(daily_data, indices, pred_prec_mean)
+        
+        # Apply multiplicative factor to match target total
         elif actual_total > 0 and abs(target_total - actual_total) > 0.1:
             factor = target_total / actual_total
-            #print(f"      Factor: {factor:.3f}")
             for idx in indices:
                 current_prec = daily_data[idx].get('precipitation', 0) or 0
                 if current_prec > 0:
                     daily_data[idx]['precipitation'] = round(current_prec * factor, 1)
-        #else:
-            #print(f"      Sin cambios necesarios")
-        
-        final_total = sum(daily_data[idx].get('precipitation', 0) or 0 for idx in indices)
-        final_rainy_days = sum(1 for idx in indices if daily_data[idx].get('precipitation', 0) or 0 > 0)
-        #print(f"\n   ✅ RESULTADO FINAL: {final_total:.1f} mm total, {final_rainy_days} días lluvia")
-        #print(f"   {'='*50}\n")
 
-    # ---- helpers de escaneo y validación -----------------------------------
+    # ---- scan and validation helpers ----------------------------------------
 
     def _scan_month_rainfall(self, daily_data: List[Dict],
                              indices: List[int]) -> Dict:
         """
-        Fase 1: escanea el estado actual de precipitación del mes.
+        Phase 1: scan current monthly precipitation state.
 
         Returns:
-            Dict con:
+            Dict with:
               total_precipitation, rainy_days, days_in_month, mean_precipitation,
-              rain_series (lista de {start_pos, end_pos, duration, total_precip, daily_values}),
-              precip_by_day (lista de valores por posición en indices)
+              rain_series (list of {start_pos, end_pos, duration, total_precip, daily_values}),
+              precip_by_day (list of values by position in indices)
         """
         precip_by_day = [daily_data[idx].get('precipitation', 0) or 0 for idx in indices]
         n = len(precip_by_day)
@@ -644,12 +599,6 @@ class SyntheticWeatherGenerator:
             else:
                 i += 1
 
-        #print(f"      Total: {total_precipitation:.1f} mm, Días: {rainy_days}, "
-        #      f"Series: {len(rain_series)}")
-        #for j, s in enumerate(rain_series, 1):
-            #print(f"         Serie {j}: posiciones {s['start_pos']}-{s['end_pos']}, "
-            #      f"duración {s['duration']}, total {s['total_precip']:.1f} mm")
-
         return {
             'total_precipitation': total_precipitation,
             'rainy_days': rainy_days,
@@ -661,10 +610,10 @@ class SyntheticWeatherGenerator:
 
     def _validate_month_rainfall(self, analysis: Dict, days_rain_pred: Dict) -> Dict:
         """
-        Fase 2: compara el estado actual con la predicción de días de lluvia.
+        Phase 2: compare current state with predicted rainy-day count.
 
         Returns:
-            Dict con days_status: {current, min, max, mean, deficit, excess,
+            Dict with days_status: {current, min, max, mean, deficit, excess,
                                    margin_up, margin_down}
         """
         current_days = analysis['rainy_days']
@@ -685,15 +634,6 @@ class SyntheticWeatherGenerator:
         deficit = max(0, pred_min - current_days)
         excess  = max(0, current_days - pred_max)
 
-        #print(f"      Predicción: min={pred_min}, mean={pred_mean}, max={pred_max}")
-        #print(f"      Actual: {current_days} días")
-        #if deficit > 0:
-        #    print(f"      → DÉFICIT: faltan {deficit} día(s)")
-        #elif excess > 0:
-        #    print(f"      → EXCESO: sobran {excess} día(s)")
-        #else:
-        #    print(f"      → Dentro del rango [min={pred_min}, max={pred_max}]")
-
         return {
             'days_status': {
                 'current':     current_days,
@@ -707,11 +647,11 @@ class SyntheticWeatherGenerator:
             }
         }
 
-    # ---- helpers de ajuste de días -----------------------------------------
+    # ---- day-adjustment helpers ---------------------------------------------
 
     @staticmethod
     def _find_dry_gaps(precip_by_day: List[float]) -> List[Dict]:
-        """Devuelve lista de {start_pos, end_pos, duration} para secuencias secas."""
+        """Return list of {start_pos, end_pos, duration} for dry sequences."""
         n = len(precip_by_day)
         gaps = []
         i = 0
@@ -735,22 +675,17 @@ class SyntheticWeatherGenerator:
                         analysis: Dict,
                         deficit: int):
         """
-        Fase 3A: añade días lluviosos hasta cubrir el déficit.
+        Phase 3A: add rainy days until deficit is covered.
 
-        Estrategia:
-        - Si déficit == 1: intentar extender una serie existente por un extremo.
-        - Déficit restante: crear series de hasta 5 días en huecos secos disponibles.
+        Strategy:
+        - If deficit == 1: try extending an existing series at one edge.
+        - Remaining deficit: create up to 5-day series in available dry gaps.
         """
         precip_by_day = list(analysis['precip_by_day'])   # copia mutable
-        rainy_days    = analysis['rainy_days']
-        total_precip  = analysis['total_precipitation']
         mean_precipitation = analysis['mean_precipitation']
-        mean_per_rainy_day = (total_precip / rainy_days) if rainy_days > 0 else 1.0
-        #print(f"         Media por día lluvioso: {mean_per_rainy_day:.2f} mm")
-
         deficit_remaining = deficit
 
-        # Intento de extensión de serie existente cuando solo falta 1 día
+        # Try extending an existing series when only 1 day is missing
         if deficit_remaining == 1 and analysis['rain_series']:
             for serie in analysis['rain_series']:
                 right_pos = serie['end_pos'] + 1
@@ -758,7 +693,6 @@ class SyntheticWeatherGenerator:
                     new_val = max(0.1, round(mean_precipitation * random.uniform(0.5, 1.5), 1))
                     precip_by_day[right_pos] = new_val
                     daily_data[indices[right_pos]]['precipitation'] = new_val
-                    #print(f"         ✓ Extendido serie pos {serie['end_pos']} → derecha pos {right_pos}: {new_val} mm")
                     deficit_remaining = 0
                     break
                 left_pos = serie['start_pos'] - 1
@@ -766,11 +700,10 @@ class SyntheticWeatherGenerator:
                     new_val = max(0.1, round(mean_precipitation * random.uniform(0.5, 1.5), 1))
                     precip_by_day[left_pos] = new_val
                     daily_data[indices[left_pos]]['precipitation'] = new_val
-                    #print(f"         ✓ Extendido serie pos {serie['start_pos']} → izquierda pos {left_pos}: {new_val} mm")
                     deficit_remaining = 0
                     break
 
-        # Crear series en huecos secos para el déficit restante
+        # Create series in dry gaps for remaining deficit
         series_count = 0
         while deficit_remaining > 0:
             series_size = min(5, deficit_remaining)
@@ -780,10 +713,9 @@ class SyntheticWeatherGenerator:
             suitable = [g for g in gaps if g['duration'] >= series_size]
 
             if not suitable:
-                # Usar el hueco más grande disponible
+                # Use the largest available gap
                 if not gaps:
-                    #print(f"         ⚠️  No quedan huecos secos para {deficit_remaining} día(s)")
-                    break   # No quedan huecos
+                    break   # No gaps left
                 gap = max(gaps, key=lambda g: g['duration'])
                 series_size  = gap['duration']
                 series_total = mean_precipitation * series_size
@@ -800,8 +732,6 @@ class SyntheticWeatherGenerator:
                 daily_data[indices[pos]]['precipitation'] = rainfall[i]
 
             series_count += 1
-            #print(f"         ✓ Serie {series_count}: pos {start_pos}-{start_pos + series_size - 1}, "
-            #      f"duración {series_size}, total {series_total:.1f} mm")
             deficit_remaining -= series_size
 
     def _remove_rainy_days(self, daily_data: List[Dict],
@@ -809,60 +739,49 @@ class SyntheticWeatherGenerator:
                            analysis: Dict,
                            excess: int):
         """
-        Fase 3B: elimina días lluviosos hasta reducir el exceso.
+        Phase 3B: remove rainy days until excess is reduced.
 
-        Estrategia (en orden):
-        1. Eliminar serie completa con duración == exceso (coincidencia exacta).
-           Si no existe, eliminar series pequeñas iterativamente (primero las más pequeñas)
-           hasta cubrir el exceso. Esto incluye automáticamente series de 1 día.
-        2. Quitar extremos de forma distribuida entre las series restantes
-           (ordenadas por total_precip ascendente), manteniendo duración >= 2.
+          Strategy (in order):
+          1. Remove full series with duration == excess (exact match).
+              If none exists, iteratively remove small series (smallest first)
+              until excess is covered. This automatically includes 1-day series.
+          2. Remove edges in a distributed way among remaining series
+              (sorted by ascending total_precip), keeping duration >= 2.
         """
         rain_series   = [dict(s) for s in analysis['rain_series']]
         precip_by_day = list(analysis['precip_by_day'])
         excess_remaining = excess
 
-        def _zero_series(serie, reason):
-            #print(f"         ✓ Eliminada serie pos {serie['start_pos']}-{serie['end_pos']} "
-            #      f"(dur {serie['duration']}, {reason})")
+        def _zero_series(serie):
             for pos in range(serie['start_pos'], serie['end_pos'] + 1):
                 precip_by_day[pos] = 0.0
                 daily_data[indices[pos]]['precipitation'] = 0.0
 
-        # Paso 1: eliminación de series (exacta + pequeñas)
-        #print(f"         Paso 1: Buscar coincidencia exacta (duración == {excess_remaining})...")
+        # Step 1: remove series (exact + small)
         exact = next((s for s in sorted(rain_series, key=lambda s: s['duration'])
                       if s['duration'] == excess_remaining), None)
         if exact:
-            _zero_series(exact, "coincidencia exacta")
+            _zero_series(exact)
             rain_series.remove(exact)
             excess_remaining = 0
         else:
-            # Eliminar series pequeñas iterativamente (primero las más pequeñas)
+            # Iteratively remove small series (smallest first)
             series_eliminated = 0
             while excess_remaining > 0 and rain_series:
                 candidates = [s for s in rain_series if s['duration'] <= excess_remaining]
                 if not candidates:
-                    #print(f"         No hay más series para eliminar (todas > {excess_remaining} días)")
                     break
-                # Eliminar la más pequeña de las candidatas
+                # Remove the smallest candidate series
                 serie_to_remove = min(candidates, key=lambda s: s['duration'])
-                reason = f"serie pequeña (dur {serie_to_remove['duration']})"
-                _zero_series(serie_to_remove, reason)
+                _zero_series(serie_to_remove)
                 excess_remaining -= serie_to_remove['duration']
                 rain_series.remove(serie_to_remove)
                 series_eliminated += 1
-            
-            #if series_eliminated > 0:
-            #    print(f"         Eliminadas {series_eliminated} serie(s) pequeña(s)")
-            #    if excess_remaining > 0:
-            #        print(f"         Todavía faltan eliminar {excess_remaining} día(s)")
 
         if excess_remaining <= 0:
             return
 
-        # Paso 2: quitar extremos distribuidos entre series restantes
-        #print(f"         Paso 2: Quitar {excess_remaining} extremo(s) de forma distribuida...")
+        # Step 2: remove distributed edges among remaining series
         for serie in sorted(rain_series, key=lambda s: s['total_precip']):
             cur_start  = serie['start_pos']
             cur_end    = serie['end_pos']
@@ -873,23 +792,15 @@ class SyntheticWeatherGenerator:
                 if cur_values[0] <= cur_values[-1]:
                     precip_by_day[cur_start] = 0.0
                     daily_data[indices[cur_start]]['precipitation'] = 0.0
-                    removed_val = cur_values[0]
                     cur_start += 1
                     cur_values = cur_values[1:]
-                    lado = "izq"
                 else:
                     precip_by_day[cur_end] = 0.0
                     daily_data[indices[cur_end]]['precipitation'] = 0.0
-                    removed_val = cur_values[-1]
                     cur_end -= 1
                     cur_values = cur_values[:-1]
-                    lado = "der"
                 extremos_removidos += 1
                 excess_remaining -= 1
-            
-            #if extremos_removidos > 0:
-            #    print(f"         ✓ Serie pos {serie['start_pos']}-{serie['end_pos']}: "
-            #          f"removidos {extremos_removidos} extremo(s)")
             
             if excess_remaining <= 0:
                 break
@@ -897,15 +808,15 @@ class SyntheticWeatherGenerator:
     def _generate_rain_periods(self, daily_data: List[Dict], 
                                indices: List[int], target_mean: float):
         """
-        Genera 2 períodos de 2-5 días seguidos con lluvia para alcanzar la media objetivo.
-        La precipitación varía aleatoriamente entre días pero mantiene la media total.
+        Generate 2 periods of 2-5 consecutive rainy days to reach the target mean.
+        Precipitation varies randomly across days while preserving total mean.
         
         Args:
-            daily_data: Lista completa de registros diarios (se modifica in-place)
-            indices: Índices de los días de este mes
-            target_mean: Media de precipitación objetivo (mm/día)
+            daily_data: Full list of daily records (modified in-place)
+            indices: Indices of this month's days
+            target_mean: Target precipitation mean (mm/day)
         """
-        # Inicializar todos los días a 0
+        # Initialize all days to 0
         for idx in indices:
             daily_data[idx]['precipitation'] = 0.0
         
@@ -913,10 +824,10 @@ class SyntheticWeatherGenerator:
         if n_days == 0:
             return
         
-        # Generar 2 períodos de lluvia
+        # Generate 2 rain periods
         total_prec_needed = target_mean * n_days
         
-        # Duración de cada período: aleatorio entre 2 y 5 días
+        # Duration of each period: random between 2 and 5 days
         period1_days = random.randint(2, min(5, n_days // 2))
         period2_days = random.randint(2, min(5, n_days // 2))
         
@@ -926,32 +837,32 @@ class SyntheticWeatherGenerator:
             period2_days = n_days - period1_days
             total_rain_days = period1_days + period2_days
         
-        # Posicionar el primer período (en la primera mitad del mes)
+        # Place first period (first half of month)
         max_start1 = max(0, n_days // 2 - period1_days)
         start1 = random.randint(0, max(0, max_start1))
         
-        # Posicionar el segundo período (en la segunda mitad del mes)
+        # Place second period (second half of month)
         half_month = n_days // 2
         max_start2 = max(half_month, n_days - period2_days)
         start2 = random.randint(half_month, max_start2)
         
-        # Distribuir la precipitación total entre los dos períodos (proporcional a duración)
+        # Distribute total precipitation between periods (proportional to duration)
         period1_total = total_prec_needed * (period1_days / total_rain_days)
         period2_total = total_prec_needed * (period2_days / total_rain_days)
         
-        # Generar distribución aleatoria de lluvia para el primer período
+        # Generate random rainfall distribution for first period
         period1_values = self._generate_variable_rainfall(period1_days, period1_total)
         
-        # Generar distribución aleatoria de lluvia para el segundo período
+        # Generate random rainfall distribution for second period
         period2_values = self._generate_variable_rainfall(period2_days, period2_total)
         
-        # Aplicar lluvia al primer período
+        # Apply rain to first period
         for i in range(period1_days):
             idx = start1 + i
             if idx < len(indices):
                 daily_data[indices[idx]]['precipitation'] = period1_values[i]
         
-        # Aplicar lluvia al segundo período
+        # Apply rain to second period
         for i in range(period2_days):
             idx = start2 + i
             if idx < len(indices):
@@ -960,17 +871,17 @@ class SyntheticWeatherGenerator:
     @staticmethod
     def _generate_variable_rainfall(n_days: int, total_rainfall: float) -> List[float]:
         """
-        Genera una distribución variable de precipitación para n días que sume exactamente el total.
-        
-        Usa una distribución aleatoria para simular variabilidad natural de la lluvia,
-        donde algunos días llueve más intensamente y otros menos.
+        Generate a variable precipitation distribution for n days that sums exactly to the total.
+
+        Uses a random distribution to simulate natural rainfall variability,
+        where some days are more intense and others less so.
         
         Args:
-            n_days: Número de días con lluvia
-            total_rainfall: Precipitación total a distribuir (mm)
+            n_days: Number of rainy days
+            total_rainfall: Total precipitation to distribute (mm)
             
         Returns:
-            Lista de valores de precipitación para cada día (redondeados a 1 decimal)
+            List of precipitation values for each day (rounded to 1 decimal)
         """
         if n_days <= 0:
             return []
@@ -978,26 +889,26 @@ class SyntheticWeatherGenerator:
         if total_rainfall <= 0:
             return [0.0] * n_days
         
-        # Generar pesos aleatorios usando distribución exponencial
-        # Esto simula que algunos días llueve más intensamente que otros
+        # Generate random weights using exponential distribution
+        # This simulates that some days rain more intensely than others
         weights = [random.expovariate(1.0) for _ in range(n_days)]
         
-        # Normalizar los pesos para que sumen 1
+        # Normalize weights so they sum to 1
         total_weight = sum(weights)
         normalized_weights = [w / total_weight for w in weights]
         
-        # Distribuir la precipitación según los pesos
+        # Distribute precipitation according to weights
         rainfall_values = [total_rainfall * w for w in normalized_weights]
         
-        # Redondear a 1 decimal
+        # Round to 1 decimal
         rounded_values = [round(val, 1) for val in rainfall_values]
         
-        # Ajustar para compensar errores de redondeo y mantener suma exacta
+        # Adjust to compensate rounding errors and keep exact sum
         current_sum = sum(rounded_values)
         diff = round(total_rainfall - current_sum, 1)
         
         if diff != 0:
-            # Añadir la diferencia al día con mayor precipitación
+            # Add difference to the day with highest precipitation
             max_idx = rounded_values.index(max(rounded_values))
             rounded_values[max_idx] = round(rounded_values[max_idx] + diff, 1)
         
@@ -1009,23 +920,23 @@ class SyntheticWeatherGenerator:
     
     def _generate_hourly_from_daily(self, daily_data: List[Dict]) -> List[Dict]:
         """
-        Genera datos horarios (24 registros por día) a partir de registros diarios.
-        
-        Usa interpolación sinusoidal para temperatura, humedad y presión,
-        distribución gaussiana para precipitación, y perfil gaussiano para viento.
+        Generate hourly data (24 records per day) from daily records.
+
+        Uses sinusoidal interpolation for temperature, humidity, and pressure,
+        Gaussian distribution for precipitation, and a Gaussian wind profile.
         
         Args:
-            daily_data: Lista de registros diarios
+            daily_data: List of daily records
         
         Returns:
-            Lista de diccionarios con datos horarios
+            List of dictionaries with hourly data
         """
         all_hourly = []
         
         for daily_rec in daily_data:
-            fecha = daily_rec['date']
+            date_label = daily_rec['date']
             
-            # Temperaturas
+            # Temperatures
             tmin = daily_rec.get('temperature_min')
             tmax = daily_rec.get('temperature_max')
             hour_tmin = self._parse_hour(daily_rec.get('hour_tmin'))
@@ -1037,18 +948,18 @@ class SyntheticWeatherGenerator:
             else:
                 hourly_temps = [tmean] * 24 if tmean is not None else [None] * 24
             
-            # Precipitación
+            # Precipitation
             prec = daily_rec.get('precipitation', 0.0) or 0.0
             hourly_precip = self._distribute_precipitation(prec)
             
-            # Viento
+            # Wind
             wind_mean = daily_rec.get('wind_speed_mean')
             wind_max = daily_rec.get('wind_speed_max')
             hour_wind = self._parse_hour(daily_rec.get('hour_wind_max'))
             hourly_wind = self._interpolate_wind_speed(wind_mean, wind_max, hour_wind)
             wind_dir = daily_rec.get('wind_direction')
             
-            # Humedad
+            # Humidity
             hr_min = daily_rec.get('humidity_min')
             hr_max = daily_rec.get('humidity_max')
             hr_mean = daily_rec.get('humidity_mean')
@@ -1059,7 +970,7 @@ class SyntheticWeatherGenerator:
             else:
                 hourly_humidity = [None] * 24
 
-            # Presión
+            # Pressure
             pres_min = daily_rec.get('pressure_min')
             pres_max = daily_rec.get('pressure_max')
             if pres_min is not None and pres_max is not None:
@@ -1069,9 +980,9 @@ class SyntheticWeatherGenerator:
             else:
                 hourly_pressure = [None] * 24
 
-            # Crear 24 registros horarios
+            # Create 24 hourly records
             for hour in range(24):
-                datetime_iso = f"{fecha}T{hour:02d}:00:00Z"
+                datetime_iso = f"{date_label}T{hour:02d}:00:00Z"
                 all_hourly.append({
                     'datetime': datetime_iso,
                     'temperature': hourly_temps[hour],
@@ -1091,23 +1002,23 @@ class SyntheticWeatherGenerator:
     def _verify_daily_vs_predictions(self, daily_data: List[Dict], 
                                      predictions_df: pd.DataFrame) -> bool:
         """
-        Verifica que los datos diarios generados coinciden con las predicciones mensuales.
-        Solo un método de depuración para validar coherencia matemática.
-        
-        Márgenes de error permitidos:
-        - Temperatura: ±1.0°C en la media
-        - Precipitación: ±0.5 mm en la media mensual
+        Verify that generated daily data matches monthly predictions.
+        Debug-only method to validate mathematical consistency.
+
+        Allowed error margins:
+        - Temperature: ±1.0°C in monthly mean
+        - Precipitation: ±0.5 mm in monthly mean
         
         Args:
-            daily_data: Lista de registros diarios generados
-            predictions_df: DataFrame con predicciones mensuales
+            daily_data: List of generated daily records
+            predictions_df: DataFrame with monthly predictions
             
         Returns:
-            True si pasa la verificación, False si hay discrepancias
+            True if validation passes, False if discrepancies exist
         """
         all_pass = True
         
-        # Crear índice de predicciones para búsqueda O(1): (year, month, variable) -> predicción
+        # Build prediction index for O(1) lookup: (year, month, variable) -> prediction
         predictions_index = {}
         for _, row in predictions_df.iterrows():
             year = int(row['Year'])
@@ -1120,7 +1031,7 @@ class SyntheticWeatherGenerator:
                 'max': row.get('Maximum')
             }
         
-        # Agrupar datos diarios por año-mes
+        # Group daily data by year-month
         daily_by_month = {}
         for record in daily_data:
             date = datetime.strptime(record['date'], '%Y-%m-%d')
@@ -1129,9 +1040,9 @@ class SyntheticWeatherGenerator:
                 daily_by_month[month_key] = []
             daily_by_month[month_key].append(record)
         
-        # Verificar cada mes que tenga datos diarios
+        # Validate each month with available daily data
         for (year, month), month_records in daily_by_month.items():
-            # Verificar TEMPERATURAS
+            # Validate TEMPERATURES
             for temp_var in ['temperature_max', 'temperature_mean', 'temperature_min']:
                 pred_key = (year, month, temp_var)
                 if pred_key not in predictions_index:
@@ -1153,23 +1064,23 @@ class SyntheticWeatherGenerator:
                 var_label = {'temperature_max': 'Tmax', 'temperature_mean': 'Tmean', 'temperature_min': 'Tmin'}[temp_var]
                 
                 if diff > 1.0:
-                    print(f"  ⚠️ {var_label} {year}-{month:02d}: Media predicha={pred_mean:.1f}, Media real={actual_mean:.1f}, Diferencia={diff:.2f}°C")
+                    print(f"  ⚠️ {var_label} {year}-{month:02d}: Predicted mean={pred_mean:.1f}, Actual mean={actual_mean:.1f}, Difference={diff:.2f}°C")
                     all_pass = False
                 
-                # Verificar límites
+                # Validate bounds
                 pred_min = pred_data.get('min')
                 if pd.notna(pred_min):
                     actual_min = min(values)
                     if actual_min < float(pred_min) - 0.1:
-                        print(f"  ❌  {var_label} {year}-{month:02d}: Mínimo real ({actual_min:.1f}°C) inferior a predicción ({pred_min:.1f}°C)")
+                        print(f"  ❌  {var_label} {year}-{month:02d}: Actual minimum ({actual_min:.1f}°C) below prediction ({pred_min:.1f}°C)")
                 
                 pred_max = pred_data.get('max')
                 if pd.notna(pred_max):
                     actual_max = max(values)
                     if actual_max > float(pred_max) + 0.1:
-                        print(f"  ❌  {var_label} {year}-{month:02d}: Máximo real ({actual_max:.1f}°C) superior a predicción ({pred_max:.1f}°C)")
+                        print(f"  ❌  {var_label} {year}-{month:02d}: Actual maximum ({actual_max:.1f}°C) above prediction ({pred_max:.1f}°C)")
             
-            # Verificar PRECIPITACIÓN
+            # Validate PRECIPITATION
             pred_key = (year, month, 'precipitation')
             if pred_key in predictions_index:
                 pred_data = predictions_index[pred_key]
@@ -1184,47 +1095,47 @@ class SyntheticWeatherGenerator:
                     pred_mean_val = float(pred_mean)
                     diff = abs(actual_mean - pred_mean_val)
                     if diff > 0.5:
-                        print(f"  ⚠️ Precip {year}-{month:02d}: Media predicha={pred_mean_val:.1f} mm/día, Media real={actual_mean:.1f} mm/día, Diferencia={diff:.2f} mm")
+                        print(f"  ⚠️ Precip {year}-{month:02d}: Predicted mean={pred_mean_val:.1f} mm/day, Actual mean={actual_mean:.1f} mm/day, Difference={diff:.2f} mm")
                         all_pass = False
                     
-                    # Verificar límites (comparar medias directamente)
+                    # Validate bounds (compare means directly)
                     pred_min = pred_data.get('min')
                     if pd.notna(pred_min):
                         pred_min_val = float(pred_min)
                         if actual_mean < pred_min_val - 0.1:
-                            print(f"  ❌  Precip {year}-{month:02d}: Media real ({actual_mean:.1f} mm/día) inferior a mínimo predicho ({pred_min_val:.1f} mm/día)")
+                            print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) below predicted minimum ({pred_min_val:.1f} mm/day)")
                     
                     pred_max = pred_data.get('max')
                     if pd.notna(pred_max):
                         pred_max_val = float(pred_max)
                         if actual_mean > pred_max_val + 0.1:
-                            print(f"  ❌  Precip {year}-{month:02d}: Media real ({actual_mean:.1f} mm/día) superior a máximo predicho ({pred_max_val:.1f} mm/día)")
+                            print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) above predicted maximum ({pred_max_val:.1f} mm/day)")
         
         return all_pass
     
     def _verify_hourly_vs_daily(self, hourly_data: List[Dict], 
                                daily_data: List[Dict]) -> bool:
         """
-        Verifica que los datos horarios coinciden con los datos diarios.
-        Solo un método de depuración para validar coherencia matemática.
-        
-        Márgenes de error permitidos:
-        - Temperatura: ±1.5°C en la media diaria
-        - Precipitación: ±0.5 mm
-        - Humedad: ±5% en la media diaria
-        - Presión: ±2 hPa en la media diaria
-        - Viento: ±0.5 m/s
+        Verify that hourly data matches daily data.
+        Debug-only method to validate mathematical consistency.
+
+        Allowed error margins:
+        - Temperature: ±1.5°C in daily mean
+        - Precipitation: ±0.5 mm
+        - Humidity: ±5% in daily mean
+        - Pressure: ±2 hPa in daily mean
+        - Wind: ±0.5 m/s
         
         Args:
-            hourly_data: Lista de registros horarios generados
-            daily_data: Lista de registros diarios base
+            hourly_data: List of generated hourly records
+            daily_data: List of base daily records
             
         Returns:
-            True si pasa la verificación, False si hay discrepancias
+            True if validation passes, False if discrepancies exist
         """
         all_pass = True
         
-        # Agrupar datos horarios por fecha
+        # Group hourly data by date
         hourly_by_date = {}
         for rec in hourly_data:
             date = rec['datetime'].split('T')[0]
@@ -1232,24 +1143,24 @@ class SyntheticWeatherGenerator:
                 hourly_by_date[date] = []
             hourly_by_date[date].append(rec)
         
-        # Verificar cada día
+        # Validate each day
         for daily_rec in daily_data:
             date = daily_rec['date']
             
             if date not in hourly_by_date:
-                print(f"  ❌ {date}: No hay datos horarios para este día")
+                print(f"  ❌ {date}: No hourly data for this day")
                 all_pass = False
                 continue
             
             hourly_recs = hourly_by_date[date]
             
-            # Verificar que hay 24 registros horarios
+            # Check there are 24 hourly records
             if len(hourly_recs) != 24:
-                print(f"  ❌ {date}: Se esperaban 24 registros horarios, se encontraron {len(hourly_recs)}")
+                print(f"  ❌ {date}: Expected 24 hourly records, found {len(hourly_recs)}")
                 all_pass = False
                 continue
             
-            # Verificar TEMPERATURA
+            # Validate TEMPERATURE
             hourly_temps = [r.get('temperature') for r in hourly_recs 
                            if r.get('temperature') is not None]
             if hourly_temps:
@@ -1259,30 +1170,30 @@ class SyntheticWeatherGenerator:
                 if daily_tmean is not None:
                     diff_temp = abs(mean_hourly_temp - daily_tmean)
                     if diff_temp > 1.5:
-                        print(f"  ⚠️  {date}: Temp media horaria ({mean_hourly_temp:.1f}°C) vs diaria ({daily_tmean:.1f}°C), Diff={diff_temp:.2f}°C")
+                        print(f"  ⚠️  {date}: Hourly mean temp ({mean_hourly_temp:.1f}°C) vs daily ({daily_tmean:.1f}°C), Diff={diff_temp:.2f}°C")
                 
-                # Verificar rangos
+                # Validate ranges
                 hourly_tmin = min(hourly_temps)
                 hourly_tmax = max(hourly_temps)
                 daily_tmin = daily_rec.get('temperature_min') or hourly_tmin
                 daily_tmax = daily_rec.get('temperature_max') or hourly_tmax
                 
                 if hourly_tmin < daily_tmin - 0.1:
-                    print(f"  ⚠️  {date}: Tmin horaria ({hourly_tmin:.1f}°C) inferior a diaria ({daily_tmin:.1f}°C)")
+                    print(f"  ⚠️  {date}: Hourly Tmin ({hourly_tmin:.1f}°C) below daily ({daily_tmin:.1f}°C)")
                 
                 if hourly_tmax > daily_tmax + 0.1:
-                    print(f"  ⚠️  {date}: Tmax horaria ({hourly_tmax:.1f}°C) superior a diaria ({daily_tmax:.1f}°C)")
+                    print(f"  ⚠️  {date}: Hourly Tmax ({hourly_tmax:.1f}°C) above daily ({daily_tmax:.1f}°C)")
             
-            # Verificar PRECIPITACIÓN
+            # Validate PRECIPITATION
             hourly_precips = [r.get('precipitation') or 0 for r in hourly_recs]
             total_hourly_precip = sum(hourly_precips)
             daily_precip = daily_rec.get('precipitation') or 0
             
             diff_precip = abs(total_hourly_precip - daily_precip)
             if diff_precip > 0.5:
-                print(f"  ⚠️  {date}: Precip total horaria ({total_hourly_precip:.1f} mm) vs diaria ({daily_precip:.1f} mm), Diff={diff_precip:.2f} mm")
+                print(f"  ⚠️  {date}: Hourly total precip ({total_hourly_precip:.1f} mm) vs daily ({daily_precip:.1f} mm), Diff={diff_precip:.2f} mm")
             
-            # Verificar HUMEDAD
+            # Validate HUMIDITY
             hourly_humidities = [r.get('humidity') for r in hourly_recs 
                                 if r.get('humidity') is not None]
             if hourly_humidities:
@@ -1292,9 +1203,9 @@ class SyntheticWeatherGenerator:
                 if daily_humid_mean is not None:
                     diff_humid = abs(mean_hourly_humid - daily_humid_mean)
                     if diff_humid > 5:
-                        print(f"  ⚠️  {date}: Humedad media horaria ({mean_hourly_humid:.1f}%) vs diaria ({daily_humid_mean:.1f}%), Diff={diff_humid:.1f}%")
+                        print(f"  ⚠️  {date}: Hourly humidity mean ({mean_hourly_humid:.1f}%) vs daily ({daily_humid_mean:.1f}%), Diff={diff_humid:.1f}%")
             
-            # Verificar PRESIÓN
+            # Validate PRESSURE
             hourly_pressures = [r.get('pressure') for r in hourly_recs 
                                if r.get('pressure') is not None]
             if hourly_pressures:
@@ -1307,9 +1218,9 @@ class SyntheticWeatherGenerator:
                 
                 diff_pres = abs(mean_hourly_pres - daily_pres_mean)
                 if diff_pres > 2.0:
-                    print(f"  ⚠️  {date}: Presión media horaria ({mean_hourly_pres:.1f} hPa) vs diaria ({daily_pres_mean:.1f} hPa), Diff={diff_pres:.1f} hPa")
+                    print(f"  ⚠️  {date}: Hourly pressure mean ({mean_hourly_pres:.1f} hPa) vs daily ({daily_pres_mean:.1f} hPa), Diff={diff_pres:.1f} hPa")
             
-            # Verificar VIENTO
+            # Validate WIND
             hourly_winds = [r.get('wind_speed') for r in hourly_recs 
                            if r.get('wind_speed') is not None]
             if hourly_winds:
@@ -1321,13 +1232,13 @@ class SyntheticWeatherGenerator:
                 if daily_wind_mean is not None:
                     diff_wind = abs(mean_hourly_wind - daily_wind_mean)
                     if diff_wind > 0.5:
-                        print(f"  ⚠️  {date}: Viento medio horario ({mean_hourly_wind:.1f} m/s) vs diario ({daily_wind_mean:.1f} m/s), Diff={diff_wind:.2f} m/s")
+                        print(f"  ⚠️  {date}: Hourly wind mean ({mean_hourly_wind:.1f} m/s) vs daily ({daily_wind_mean:.1f} m/s), Diff={diff_wind:.2f} m/s")
                 
-                # Verificar que se alcanza la racha máxima de viento esperada
+                # Validate expected max wind gust is reached
                 if daily_wind_max is not None:
                     diff_wind_max = abs(max_hourly_wind - daily_wind_max)
                     if diff_wind_max > 0.1:
-                        print(f"  ⚠️  {date}: Racha máxima de viento no alcanza valor esperado. Horaria={max_hourly_wind:.1f} m/s, Esperada={daily_wind_max:.1f} m/s, Diff={diff_wind_max:.2f} m/s")
+                        print(f"  ⚠️  {date}: Max wind gust does not reach expected value. Hourly={max_hourly_wind:.1f} m/s, Expected={daily_wind_max:.1f} m/s, Diff={diff_wind_max:.2f} m/s")
         
         return all_pass
     
@@ -1341,85 +1252,76 @@ class SyntheticWeatherGenerator:
         correction_method: str = 'knn',
     ) -> Tuple[List[Dict], List[Dict], int]:
         """
-        Genera datos sintéticos completos (diarios + horarios).
+        Generate complete synthetic data (daily + hourly).
 
         Flow:
-        1. Ciclar datos históricos diarios al período de generación
-        2. Ajustar a predicciones mensuales (si se proporcionan)
-        3. Aplicar corrección de variables secundarias (KNN o XGBoost)
-        4. Generar datos horarios
-        5. Verificar que datos diarios cuadran con predicciones mensuales (si se proporcionan)
-        6. Verificar que los datos horarios cuadran con los diarios
+        1. Cycle historical daily data to generation period
+        2. Adjust to monthly predictions (if provided)
+        3. Apply secondary-variable correction (KNN or XGBoost)
+        4. Generate hourly data
+        5. Verify daily data matches monthly predictions (if provided)
+        6. Verify hourly data matches daily data
 
         Args:
-            predictions_df:    DataFrame con predicciones mensuales (opcional).
-            correction_method: Método de corrección para variables secundarias
-                               (viento, humedad, presión). Sólo se aplica cuando
-                               se proporcionan predicciones mensuales.
+            predictions_df:    DataFrame with monthly predictions (optional).
+            correction_method: Correction method for secondary variables
+                               (wind, humidity, pressure). Applied only when
+                               monthly predictions are provided.
                                'knn'     - K-Nearest Neighbors.
                                'xgboost' - Modelo XGBoost de ventana deslizante.
 
         Returns:
-            Tupla (daily_data, hourly_data, total_hourly_records)
+            Tuple (daily_data, hourly_data, total_hourly_records)
         """
-        # 1. Generar datos diarios sintéticos (ciclo del histórico)
+        # 1. Generate synthetic daily data (historical cycle)
         daily_data = self._generate_daily_synthetic()
-        print(f"📅 Generados {len(daily_data)} registros diarios sintéticos")
+        print(f"📅 Generated {len(daily_data)} synthetic daily records")
         
-        # 2. Ajustar a predicciones mensuales si se proporcionan
+        # 2. Adjust to monthly predictions if provided
         if predictions_df is not None and not predictions_df.empty:
             daily_data = self._adjust_to_monthly_predictions(daily_data, predictions_df)
 
-            # 2.5. Corrección multivariada MBCn para consistencia inter-variables
-            #print("🔄 Aplicando corrección multivariada MBCn...")
-            #mbc_corrector = MBCnCorrector(n_iter=30, extrapolation_quantile=0.95)
-            #daily_data = mbc_corrector.correct(
-            #    adjusted_data=daily_data,
-            #    historical_data=self.historical_data
-            #)
-            #print("✅ Corrección MBCn aplicada")
-
-            # 2.5. Corrección de variables numéricas secundarias (viento, humedad,
-            #      presión). Sólo se aplica cuando hay predicciones mensuales.
-            #      Las variables no numéricas (dirección viento, horas) se
-            #      mantienen tal como vienen del ciclo histórico.
+            # 2.5. Correction of secondary numeric variables (wind, humidity,
+            #      pressure). Applied only when monthly predictions are provided.
+            #      Non-numeric variables (wind direction, hour fields)
+            #      remain as in the historical cycle.
             if correction_method == 'xgboost':
-                print("🔄 Aplicando modelo XGBoost (ventana deslizante) para variables secundarias...")
+                print("🔄 Applying XGBoost model (sliding window) for secondary variables...")
                 xgb_model = XGBoostWeatherModel(window_size=5)
                 daily_data = xgb_model.correct(
                     adjusted_data=daily_data,
                     historical_data=self.historical_data
                 )
-                print("✅ Corrección XGBoost aplicada")
+                print("✅ XGBoost correction applied")
             else:  # 'knn'
-                # Corrección K-Vecinos: adaptar variables no modificadas
-                # (viento, humedad, presión) usando los días históricos más
-                # parecidos en temperatura y precipitación.
-                print("🔄 Aplicando corrección K-Vecinos para variables secundarias...")
+                # K-Neighbors correction: adapt non-modified variables
+                # (wind, humidity, pressure) using the most similar
+                # historical days in temperature and precipitation.
+                print("🔄 Applying K-Neighbors correction for secondary variables...")
                 knn_corrector = KNeighborsCorrector(k=3, month_weight=0.25)
                 daily_data = knn_corrector.correct(
                     adjusted_data=daily_data,
                     historical_data=self.historical_data
                 )
-                print("✅ Corrección K-Vecinos aplicada")
+                print("✅ K-Neighbors correction applied")
         
-        # 3. Generar datos horarios desde los diarios
+        # 3. Generate hourly data from daily data
         hourly_data = self._generate_hourly_from_daily(daily_data)
-        print(f"🕐 Generados {len(hourly_data)} registros horarios")
+        print(f"🕐 Generated {len(hourly_data)} hourly records")
         
-        # 4. Verificar que los datos generados cuadran con los diarios (y/o predicciones)
+        # 4. Verify generated data matches daily data (and/or predictions)
         if predictions_df is not None and not predictions_df.empty:
-            print("🔍 Verificando coherencia de datos diarios vs predicciones mensuales...")
+            print("🔍 Verifying consistency of daily data vs monthly predictions...")
             if self._verify_daily_vs_predictions(daily_data, predictions_df):
-                print("✅ Datos diarios vs predicciones: coherencia verificada")
+                print("✅ Daily data vs predictions: consistency verified")
             else:
-                print("⚠️ Se detectaron discrepancias en datos diarios vs predicciones (ver errores arriba)")
+                print("⚠️ Discrepancies detected in daily data vs predictions (see errors above)")
         
-        print("🔍 Verificando coherencia de datos horarios vs diarios...")
+        print("🔍 Verifying consistency of hourly data vs daily data...")
         if self._verify_hourly_vs_daily(hourly_data, daily_data):
-            print("✅ Datos horarios vs diarios: coherencia verificada")
+            print("✅ Hourly data vs daily data: consistency verified")
         else:
-            print("⚠️ Se detectaron discrepancias en datos horarios vs diarios (ver errores arriba)")
+            print("⚠️ Discrepancies detected in hourly data vs daily data (see errors above)")
         
         return daily_data, hourly_data, len(hourly_data)
 
@@ -1431,19 +1333,19 @@ class SyntheticWeatherGenerator:
         correction_method: str = 'knn',
     ) -> Tuple[int, int, List[Dict]]:
         """
-        Genera datos sintéticos, los guarda en BD y devuelve la info.
+        Generate synthetic data, save it to DB, and return metadata.
 
         Args:
-            latitude:          Latitud de la ubicación.
-            longitude:         Longitud de la ubicación.
-            predictions_df:    DataFrame con predicciones mensuales (opcional).
-            correction_method: Método de corrección para variables secundarias
+            latitude:          Location latitude.
+            longitude:         Location longitude.
+            predictions_df:    DataFrame with monthly predictions (optional).
+            correction_method: Correction method for secondary variables
                                ('knn' o 'xgboost').
 
         Returns:
-            Tupla (job_id, cantidad_registros_horarios, datos_horarios)
+            Tuple (job_id, hourly_record_count, hourly_data)
         """
-        # 1. Crear entrada en GenerationJob
+        # 1. Create GenerationJob entry
         job_data = [(
             latitude,
             longitude,
@@ -1455,10 +1357,10 @@ class SyntheticWeatherGenerator:
         
         job_ids = insert_generation_jobs(job_data)
         if not job_ids:
-            raise ValueError("Error al crear el trabajo de generación en la base de datos")
+            raise ValueError("Error creating generation job in database")
         job_id = job_ids[0]
         
-        # 2. Guardar predicciones mensuales si se proporcionan
+        # 2. Save monthly predictions if provided
         if predictions_df is not None and not predictions_df.empty:
             pred_tuples = []
             for _, row in predictions_df.iterrows():
@@ -1472,12 +1374,12 @@ class SyntheticWeatherGenerator:
                     float(row['Maximum']) if pd.notna(row.get('Maximum')) else None
                 ))
             insert_monthly_predictions(pred_tuples)
-            print(f"📊 Insertadas {len(pred_tuples)} predicciones mensuales")
+            print(f"📊 Inserted {len(pred_tuples)} monthly predictions")
         
-        # 3. Generar datos
+        # 3. Generate data
         daily_data, hourly_data, hourly_count = self.generate(predictions_df, correction_method)
         
-        # 4. Insertar datos diarios generados
+        # 4. Insert generated daily data
         daily_tuples = []
         for rec in daily_data:
             daily_tuples.append((
@@ -1497,9 +1399,9 @@ class SyntheticWeatherGenerator:
                 rec.get('pressure_max')
             ))
         insert_generated_daily_data(daily_tuples)
-        print(f"📅 Insertados {len(daily_tuples)} registros diarios generados")
+        print(f"📅 Inserted {len(daily_tuples)} generated daily records")
         
-        # 5. Insertar datos horarios generados
+        # 5. Insert generated hourly data
         hourly_tuples = []
         for rec in hourly_data:
             hourly_tuples.append((
@@ -1513,9 +1415,9 @@ class SyntheticWeatherGenerator:
                 rec.get('pressure')
             ))
         insert_generated_hourly_data(hourly_tuples)
-        print(f"🕐 Insertados {len(hourly_tuples)} registros horarios generados")
+        print(f"🕐 Inserted {len(hourly_tuples)} generated hourly records")
         
-        print(f"✅ Generación completa. Job ID: {job_id}")
+        print(f"✅ Generation completed. Job ID: {job_id}")
         
         return job_id, hourly_count, hourly_data
     
@@ -1525,7 +1427,7 @@ class SyntheticWeatherGenerator:
     
     @staticmethod
     def _parse_hour(time_str) -> int:
-        """Extrae la hora de un string HH:MM o similar. Default: 12"""
+        """Extract hour from an HH:MM-like string. Default: 12."""
         try:
             if not time_str or str(time_str).lower() in ['varias', 'n/a', 'nd', '', 'none']:
                 return 12
@@ -1554,7 +1456,7 @@ class SyntheticWeatherGenerator:
         if hours_between == 0:
             hours_between = 12
 
-        # Generar forma base normalizada f(h) ∈ [0,1]
+        # Generate normalized base shape f(h) in [0,1]
         f_values = []
 
         for hour in range(24):
@@ -1572,7 +1474,7 @@ class SyntheticWeatherGenerator:
 
             f_values.append(f)
 
-        # Buscar exponente α que conserve la media
+        # Find exponent alpha that preserves the mean
         def compute_mean(alpha):
             temps = [
                 tmin + (tmax - tmin) * (f ** alpha)
@@ -1580,7 +1482,7 @@ class SyntheticWeatherGenerator:
             ]
             return sum(temps) / 24
 
-        # Bisección estable
+        # Stable bisection
         low, high = 0.1, 5.0
 
         for _ in range(50):
@@ -1594,13 +1496,13 @@ class SyntheticWeatherGenerator:
 
         alpha = (low + high) / 2
 
-        # Construir temperaturas finales
+        # Build final temperatures
         hourly_temps = [
             tmin + (tmax - tmin) * (f ** alpha)
             for f in f_values
         ]
 
-        # Forzar extremos exactos
+        # Force exact extrema
         hourly_temps[hour_min] = tmin
         hourly_temps[hour_max] = tmax
 
@@ -1610,33 +1512,33 @@ class SyntheticWeatherGenerator:
     def _interpolate_wind_speed(
         wind_avg: Optional[float], wind_max: Optional[float], hour_max: int
     ) -> List[Optional[float]]:
-        """Interpola velocidad del viento horaria con pico gaussiano."""
+        """Interpolate hourly wind speed with a Gaussian peak."""
         if wind_avg is None:
             return [None] * 24
 
         if wind_max is None or wind_max <= wind_avg:
             return [wind_avg] * 24
 
-        # Caso especial: media 0
+        # Special case: mean = 0
         if wind_avg == 0:
             hourly = [0.0] * 24
             hourly[hour_max] = round(wind_max, 1)
             return hourly
 
-        # Generar forma gaussiana
+        # Generate Gaussian shape
         base = []
         for hour in range(24):
             dist = min(abs(hour - hour_max), 24 - abs(hour - hour_max))
             factor = exp(-(dist**2) / 2)
             base.append(factor)
 
-        # Normalizar para que el máximo sea exactamente 1
+        # Normalize so maximum is exactly 1
         max_base = max(base)
         base = [b / max_base for b in base]
 
         mean_base = sum(base) / 24
 
-        # Resolver sistema para cumplir media y máximo
+        # Solve system to satisfy mean and maximum
         b = (wind_max - wind_avg) / (1 - mean_base)
         a = wind_max - b
 
@@ -1649,20 +1551,20 @@ class SyntheticWeatherGenerator:
         hr_min: float, hr_max: float, hr_mean: Optional[float],
         hour_hrmin: int, hour_hrmax: int
     ) -> List[int]:
-        """Interpola humedad relativa horaria con ajuste de media (similar a temperatura).
+        """Interpolate hourly relative humidity with mean adjustment (similar to temperature).
         
-        Genera una curva coseno normalizada f(h) ∈ [0,1] entre hr_min y hr_max,
-        y busca un exponente α tal que la media horaria coincida con hr_mean.
+        Generate a normalized cosine curve f(h) in [0,1] between hr_min and hr_max,
+        and find exponent alpha so hourly mean matches hr_mean.
         
         Args:
-            hr_min: Humedad relativa mínima del día (%)
-            hr_max: Humedad relativa máxima del día (%)
-            hr_mean: Humedad relativa media del día (%)
-            hour_hrmin: Hora del mínimo de humedad
-            hour_hrmax: Hora del máximo de humedad
+            hr_min: Daily minimum relative humidity (%)
+            hr_max: Daily maximum relative humidity (%)
+            hr_mean: Daily mean relative humidity (%)
+            hour_hrmin: Hour of minimum humidity
+            hour_hrmax: Hour of maximum humidity
             
         Returns:
-            Lista de 24 valores enteros de humedad relativa (%)
+            List of 24 integer relative-humidity values (%)
         """
         if hr_mean is None:
             hr_mean = (hr_max + hr_min) / 2
@@ -1674,18 +1576,18 @@ class SyntheticWeatherGenerator:
         if hours_between == 0:
             hours_between = 12
 
-        # Generar forma base normalizada f(h) ∈ [0,1]
-        # donde 0 = hr_min y 1 = hr_max
+        # Generate normalized base shape f(h) in [0,1]
+        # where 0 = hr_min and 1 = hr_max
         f_values = []
         for hour in range(24):
             hours_since_max = (hour - hour_hrmax) % 24
 
             if hours_since_max <= hours_between:
-                # Descenso de máximo a mínimo
+                # Decrease from maximum to minimum
                 progress = hours_since_max / hours_between
                 f = 1 - (1 - cos(pi * progress)) / 2
             else:
-                # Ascenso de mínimo a máximo
+                # Increase from minimum to maximum
                 hours_since_min = hours_since_max - hours_between
                 hours_to_next_max = 24 - hours_between
                 progress = hours_since_min / hours_to_next_max
@@ -1693,7 +1595,7 @@ class SyntheticWeatherGenerator:
 
             f_values.append(f)
 
-        # Buscar exponente α que conserve la media
+        # Find exponent alpha that preserves the mean
         def compute_mean(alpha):
             humidities = [
                 hr_min + (hr_max - hr_min) * (f ** alpha)
@@ -1701,7 +1603,7 @@ class SyntheticWeatherGenerator:
             ]
             return sum(humidities) / 24
 
-        # Bisección estable
+        # Stable bisection
         low, high = 0.1, 5.0
         for _ in range(50):
             mid = (low + high) / 2
@@ -1713,13 +1615,13 @@ class SyntheticWeatherGenerator:
 
         alpha = (low + high) / 2
 
-        # Construir humedades finales
+        # Build final humidity values
         hourly_humidity = [
             hr_min + (hr_max - hr_min) * (f ** alpha)
             for f in f_values
         ]
 
-        # Forzar extremos exactos
+        # Force exact extrema
         hourly_humidity[hour_hrmax] = hr_max
         hourly_humidity[hour_hrmin] = hr_min
 
@@ -1727,7 +1629,7 @@ class SyntheticWeatherGenerator:
     
     @staticmethod
     def _distribute_precipitation(total_precip: float) -> List[float]:
-        """Distribuye precipitación diaria en horas de forma realista."""
+        """Distribute daily precipitation across hours in a realistic way."""
         hourly_precip = [0.0] * 24
         if total_precip <= 0:
             return hourly_precip
@@ -1757,7 +1659,7 @@ class SyntheticWeatherGenerator:
     def _interpolate_pressure(
         pres_min: float, pres_max: float, hour_presmin: int, hour_presmax: int
     ) -> List[float]:
-        """Interpola presión atmosférica horaria con curva coseno."""
+        """Interpolate hourly atmospheric pressure with a cosine curve."""
         hourly_pressure = []
         for hour in range(24):
             hours_since_min = (hour - hour_presmin) % 24

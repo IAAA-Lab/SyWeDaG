@@ -42,7 +42,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 # ---------------------------------------------------------------------------
-# Variables de referencia (usadas para calcular distancia)
+# Reference variables (used to compute distance)
 # ---------------------------------------------------------------------------
 REFERENCE_VARS = [
     'temperature_min',
@@ -52,7 +52,7 @@ REFERENCE_VARS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Variables objetivo numéricas (corregidas por KNN)
+# Numeric target variables (corrected by KNN)
 # ---------------------------------------------------------------------------
 TARGET_VARS_NUMERIC = [
     'wind_speed_mean',
@@ -65,14 +65,14 @@ TARGET_VARS_NUMERIC = [
 ]
 
 # ---------------------------------------------------------------------------
-# Variables objetivo categóricas (se copian del vecino más cercano)
+# Categorical target variables (copied from nearest neighbor)
 # ---------------------------------------------------------------------------
 TARGET_VARS_CATEGORICAL = [
     'wind_direction',
 ]
 
 # ---------------------------------------------------------------------------
-# Campos de hora asociados (se copian del vecino más cercano siempre)
+# Associated hour fields (always copied from nearest neighbor)
 # ---------------------------------------------------------------------------
 HOUR_FIELDS = [
     'hour_wind_max',
@@ -89,28 +89,28 @@ HOUR_REFERENCE_FIELDS = [
 
 class KNeighborsCorrector:
     """
-    Corrector K-Vecinos para variables meteorológicas no modificadas.
+    K-Nearest Neighbors corrector for non-modified weather variables.
 
-    Tras ajustar temperatura y precipitación a predicciones mensuales,
-    adapta viento, humedad y presión buscando los días históricos más
-    parecidos en temperatura/precipitación y copiando (K=1) o promediando
-    ponderadamente (K>1) sus valores.
+    After adjusting temperature and precipitation to monthly predictions,
+    adapts wind, humidity, and pressure by searching for the most similar
+    historical days in temperature/precipitation and copying (K=1) or
+    weighted-averaging (K>1) their values.
 
     Args:
-        k: Número de vecinos (1 = copia directa, >1 = promedio ponderado).
-        month_weight: Peso de las columnas de estacionalidad (sin/cos del mes).
-                      0 = sin preferencia estacional, valores altos priorizan
-                      mismo mes.
+        k: Number of neighbors (1 = direct copy, >1 = weighted average).
+        month_weight: Weight for seasonality columns (month sin/cos).
+                  0 = no seasonal preference, high values prioritize
+                  the same month.
     """
 
     def __init__(self, k: int = 3, month_weight: float = 0.25):
         if k < 1:
-            raise ValueError("k debe ser >= 1")
+            raise ValueError("k must be >= 1")
         self.k = k
         self.month_weight = month_weight
 
     # ================================================================
-    # Función principal de corrección
+    # Main correction function
     # ================================================================
 
     def correct(
@@ -119,54 +119,54 @@ class KNeighborsCorrector:
         historical_data: List[Dict],
     ) -> List[Dict]:
         """
-        Corrige las variables no modificadas de los datos ajustados usando KNN.
+        Correct non-modified variables in adjusted data using KNN.
 
         Args:
-            adjusted_data:   Datos generados con temperatura/precipitación ya
-                             ajustadas a predicciones mensuales.
-            historical_data: Datos históricos originales (referencia para KNN).
+            adjusted_data:   Generated data with temperature/precipitation
+                             already adjusted to monthly predictions.
+            historical_data: Original historical data (KNN reference).
 
         Returns:
-            Lista de registros con las variables no modificadas corregidas.
-            Temperatura y precipitación se mantienen intactas.
+            List of records with corrected non-modified variables.
+            Temperature and precipitation stay unchanged.
         """
-        # -- 1. Preparar features históricos + ajustar scaler --------
+        # -- 1. Build historical features + fit scaler ---------------
         hist_matrix, hist_valid_records, scaler, active_ref_vars = \
             self._build_feature_matrix(historical_data)
 
         if hist_matrix is None or len(hist_matrix) == 0:
-            print("  ⚠️  KNN: No hay suficientes datos históricos, se omite corrección")
+            print("  ⚠️  KNN: Not enough historical data, skipping correction")
             return adjusted_data
 
-        # -- 2. Entrenar NearestNeighbors sobre el histórico ----------
+        # -- 2. Train NearestNeighbors on historical data -------------
         k_fit = min(self.k, len(hist_matrix))
         nn = NearestNeighbors(n_neighbors=k_fit, metric='euclidean')
         nn.fit(hist_matrix)
 
-        # -- 3. Preparar queries de todos los días ajustados ----------
+        # -- 3. Build queries for all adjusted days -------------------
         adj_raw, adj_indices = self._build_query_matrix(adjusted_data, active_ref_vars)
 
         if len(adj_raw) == 0:
-            print("  ⚠️  KNN: Ningún día ajustado tiene features válidos")
+            print("  ⚠️  KNN: No adjusted day has valid features")
             return adjusted_data
 
-        # Escalar y ponderar mes (misma transformación que el histórico)
+        # Scale and weight month columns (same transform as historical data)
         adj_scaled = scaler.transform(adj_raw)
         adj_scaled[:, -2] *= self.month_weight
         adj_scaled[:, -1] *= self.month_weight
 
-        # -- 4. Buscar vecinos de todos los días de golpe (vectorizado)
+        # -- 4. Search neighbors for all days at once (vectorized) ----
         distances, neighbor_idx = nn.kneighbors(adj_scaled)
 
-        # -- 5. Corregir cada día ------------------------------------
+        # -- 5. Correct each day --------------------------------------
         corrected = [record.copy() for record in adjusted_data]
 
         for idx_corrected, (pos, rec_idx) in enumerate(enumerate(adj_indices)):
             new_record = corrected[rec_idx]
             nbr_dists = distances[pos]      # shape (k_fit,)
-            nbr_idxs = neighbor_idx[pos]    # shape (k_fit,) — índices en hist_valid_records
+            nbr_idxs = neighbor_idx[pos]    # shape (k_fit,) — indices in hist_valid_records
 
-            # -- Guardar valores antes de la corrección ---------------
+            # -- Keep values before correction -------------------------
             record_before = {
                 'humidity_min': new_record.get('humidity_min'),
                 'humidity_max': new_record.get('humidity_max'),
@@ -178,7 +178,7 @@ class KNeighborsCorrector:
                 'pressure_max': new_record.get('pressure_max'),
             }
 
-            # -- Asignar variables del/los vecino(s) ------------------
+            # -- Assign variables from neighbor(s) ---------------------
             nearest_record = hist_valid_records[nbr_idxs[0]]
             if k_fit == 1:
                 self._copy_target_vars(new_record, nearest_record)
@@ -187,14 +187,14 @@ class KNeighborsCorrector:
                     new_record, hist_valid_records, nbr_idxs, nbr_dists
                 )
 
-            # -- Restricciones físicas finales ------------------------
+            # -- Final physical constraints ----------------------------
             self._apply_physical_constraints(new_record)
 
-            # -- Log: mostrar cada 60 días corregidos ----------------
+            # -- Log: show every 60 corrected days ---------------------
             if idx_corrected % 460 == 0:
                 nearest = hist_valid_records[nbr_idxs[0]]
                 
-                # Datos de temperatura y precipitación
+                # Temperature and precipitation data
                 t_min_gen = new_record.get('temperature_min', 'N/A')
                 t_max_gen = new_record.get('temperature_max', 'N/A')
                 t_mean_gen = new_record.get('temperature_mean', 'N/A')
@@ -206,44 +206,44 @@ class KNeighborsCorrector:
                 p_nearest = nearest.get('precipitation', 'N/A')
                 
                 
-                print(f"\n  📍 Día {idx_corrected+1}: {new_record.get('date', 'N/A')} "
-                      f"(vecino: {nearest.get('date', 'N/A')}) ")
-                print(f"     Temperatura (Gen):      Tmin={t_min_gen}°C, Tmax={t_max_gen}°C, Tmean={t_mean_gen}°C, P={p_gen}mm")
-                print(f"     Temperatura (KVecino):  Tmin={t_min_nearest}°C, Tmax={t_max_nearest}°C, Tmean={t_mean_nearest}°C, P={p_nearest}mm")
-                print(f"     Humedad máx:             {record_before['humidity_max']} → {new_record.get('humidity_max')}")
-                print(f"     Humedad mín:             {record_before['humidity_min']} → {new_record.get('humidity_min')}")
-                print(f"     Humedad media:           {record_before['humidity_mean']} → {new_record.get('humidity_mean')}")
-                print(f"     Viento medio:            {record_before['wind_speed_mean']} → {new_record.get('wind_speed_mean')}")
-                print(f"     Viento máximo:           {record_before['wind_speed_max']} → {new_record.get('wind_speed_max')}")
-                print(f"     Dirección:               {record_before['wind_direction']} → {new_record.get('wind_direction')}")
-                print(f"     Presión máx:             {record_before['pressure_max']} → {new_record.get('pressure_max')}")
-                print(f"     Presión mín:             {record_before['pressure_min']} → {new_record.get('pressure_min')}")
+                print(f"\n  📍 Day {idx_corrected+1}: {new_record.get('date', 'N/A')} "
+                        f"(neighbor: {nearest.get('date', 'N/A')}) ")
+                print(f"     Temperature (Gen):      Tmin={t_min_gen}°C, Tmax={t_max_gen}°C, Tmean={t_mean_gen}°C, P={p_gen}mm")
+                print(f"     Temperature (KNeighbor): Tmin={t_min_nearest}°C, Tmax={t_max_nearest}°C, Tmean={t_mean_nearest}°C, P={p_nearest}mm")
+                print(f"     Humidity max:            {record_before['humidity_max']} → {new_record.get('humidity_max')}")
+                print(f"     Humidity min:            {record_before['humidity_min']} → {new_record.get('humidity_min')}")
+                print(f"     Humidity mean:           {record_before['humidity_mean']} → {new_record.get('humidity_mean')}")
+                print(f"     Wind mean:               {record_before['wind_speed_mean']} → {new_record.get('wind_speed_mean')}")
+                print(f"     Wind max:                {record_before['wind_speed_max']} → {new_record.get('wind_speed_max')}")
+                print(f"     Direction:               {record_before['wind_direction']} → {new_record.get('wind_direction')}")
+                print(f"     Pressure max:            {record_before['pressure_max']} → {new_record.get('pressure_max')}")
+                print(f"     Pressure min:            {record_before['pressure_min']} → {new_record.get('pressure_min')}")
 
         return corrected
 
     # ================================================================
-    # Construcción de features (StandardScaler + codificación cíclica)
+    # Feature building (StandardScaler + cyclic encoding)
     # ================================================================
 
     def _build_feature_matrix(self, data: List[Dict]):
         """
-        Construye la matriz de features estandarizada del histórico.
+        Build the standardized historical feature matrix.
 
-        Para cada registro se extraen todas las REFERENCE_VARS. Se detectan
-        qué columnas tienen todos los valores a None (variable completamente
-        ausente en el histórico) y se eliminan de la matriz. Si 3 o más
-        variables están completamente vacías el algoritmo se cancela.
+        For each record, all REFERENCE_VARS are extracted. Columns whose values
+        are all None (variable fully absent in historical data) are detected
+        and removed from the matrix. If 3 or more variables are fully empty,
+        the algorithm is canceled.
 
-        Features activas: [vars_con_datos..., sin_month, cos_month]
-        Se estandarizan con StandardScaler y luego se multiplican las columnas
-        de mes por ``month_weight``.
+        Active features: [vars_with_data..., sin_month, cos_month]
+        They are standardized with StandardScaler and then month columns are
+        multiplied by ``month_weight``.
 
         Returns:
             (scaled_matrix, valid_records, fitted_scaler, active_ref_vars)
-            o (None, None, None, None) si se cancela.
+            or (None, None, None, None) if canceled.
         """
         valid_records = []
-        raw_rows = []   # lista de dicts con valores crudos por registro
+        raw_rows = []
 
         for record in data:
             month = self._get_month(record)
@@ -262,24 +262,24 @@ class KNeighborsCorrector:
         if len(raw_rows) < 2:
             return None, None, None, None
 
-        # -- Detectar columnas completamente nulas --------------------
+        # -- Detect fully-null columns --------------------------------
         all_null_vars = [
             v for v in REFERENCE_VARS
             if all(row[v] is None for row in raw_rows)
         ]
 
         if len(all_null_vars) >= 3:
-            print(f"  ⚠️  KNN: {len(all_null_vars)} variables de referencia sin datos "
-                  f"({', '.join(all_null_vars)}), se cancela la corrección")
+            print(f"  ⚠️  KNN: {len(all_null_vars)} reference variables without data "
+                f"({', '.join(all_null_vars)}), canceling correction")
             return None, None, None, None
 
         active_ref_vars = [v for v in REFERENCE_VARS if v not in all_null_vars]
 
         if all_null_vars:
-            print(f"  ℹ️  KNN: Variables de referencia ignoradas (sin datos): "
+            print(f"  ℹ️  KNN: Ignored reference variables (no data): "
                   f"{', '.join(all_null_vars)}")
 
-        # -- Construir matriz con variables activas -------------------
+        # -- Build matrix with active variables ------------------------
         matrix = np.array(
             [
                 [row[v] if row[v] is not None else np.nan
@@ -290,11 +290,11 @@ class KNeighborsCorrector:
             dtype=np.float64,
         )
 
-        # Estandarizar con StandardScaler
+        # Standarize with StandardScaler
         scaler = StandardScaler()
         scaled = scaler.fit_transform(matrix)
 
-        # Aplicar peso a columnas de mes (últimas 2)
+        # Apply weight to month columns (last 2)
         scaled[:, -2] *= self.month_weight
         scaled[:, -1] *= self.month_weight
 
@@ -302,18 +302,18 @@ class KNeighborsCorrector:
 
     def _build_query_matrix(self, data: List[Dict], active_ref_vars: List[str]):
         """
-        Construye la matriz de features *sin escalar* de los datos ajustados,
-        usando únicamente las variables de referencia activas (las que tienen
-        datos en el histórico).
+        Build the *unscaled* adjusted-data feature matrix,
+        using only active reference variables (those with data in historical
+        records).
 
         Args:
-            data:            Registros ajustados a consultar.
-            active_ref_vars: Subconjunto de REFERENCE_VARS con datos disponibles,
-                             devuelto por _build_feature_matrix.
+            data:            Adjusted records to query.
+            active_ref_vars: Subset of REFERENCE_VARS with available data,
+                             returned by _build_feature_matrix.
 
         Returns:
-            (raw_matrix, valid_indices) donde valid_indices son las posiciones
-            en ``data`` que pudieron construir features.
+            (raw_matrix, valid_indices) where valid_indices are the positions
+            in ``data`` which could build features.
         """
         raw_features = []
         valid_indices = []
@@ -337,11 +337,11 @@ class KNeighborsCorrector:
         return np.array(raw_features, dtype=np.float64), valid_indices
 
     # ================================================================
-    # Asignación de variables objetivo
+    # Target variable assignment
     # ================================================================
 
     def _copy_target_vars(self, target: Dict, source: Dict):
-        """Copia todas las variables objetivo del vecino más cercano."""
+        """Copy all target variables from the nearest neighbor."""
         for var in TARGET_VARS_NUMERIC:
             if source.get(var) is not None:
                 target[var] = source[var]
@@ -363,15 +363,15 @@ class KNeighborsCorrector:
         indices: np.ndarray, distances: np.ndarray
     ):
         """
-        Promedio ponderado por inversa de distancia para variables numéricas.
-        Variables categóricas y campos de hora se toman del vecino más cercano.
+        Inverse-distance weighted average for numeric variables.
+        Categorical variables and hour fields are taken from nearest neighbor.
         """
-        # Pesos: inversa de la distancia (epsilon para evitar div/0)
+        # Weights: inverse distance (epsilon avoids div/0)
         epsilon = 1e-10
         inv_distances = 1.0 / (distances + epsilon)
         weights = inv_distances / inv_distances.sum()
 
-        # Variables numéricas: promedio ponderado
+        # Numeric variables: weighted average
         for var in TARGET_VARS_NUMERIC:
             values = []
             valid_weights = []
@@ -383,16 +383,16 @@ class KNeighborsCorrector:
 
             if values:
                 w = np.array(valid_weights)
-                w = w / w.sum()  # renormalizar por si se descartaron NaN
+                w = w / w.sum()  # re-normalize in case NaNs were discarded
                 weighted_val = np.dot(values, w)
 
-                # Redondear según tipo de variable
+                # Round based on variable type
                 if 'humidity' in var:
                     target[var] = int(round(weighted_val))
                 else:
                     target[var] = round(weighted_val, 1)
 
-        # Variables categóricas: voto mayoritario ponderado
+        # Categorical variables: weighted majority vote
         for var in TARGET_VARS_CATEGORICAL:
             vote_weights: Dict[str, float] = {}
             for i, idx in enumerate(indices):
@@ -402,25 +402,25 @@ class KNeighborsCorrector:
             if vote_weights:
                 target[var] = max(vote_weights, key=vote_weights.get)
 
-        # Campos de hora: del vecino más cercano (promediar horas no tiene sentido)
+        # Hour fields: from nearest neighbor (averaging hours is meaningless)
         nearest = hist_records[indices[0]]
         for field in HOUR_FIELDS:
             if nearest.get(field) is not None:
                 target[field] = nearest[field]
 
     # ================================================================
-    # Restricciones físicas
+    # Physical constraints
     # ================================================================
 
     @staticmethod
     def _apply_physical_constraints(record: Dict):
         """
-        Aplica restricciones físicas a las variables corregidas:
-        - Humedad: [0, 100] y max >= mean >= min
-        - Presión: max >= min, ambas > 0
-        - Viento: >= 0, max >= mean
+        Apply physical constraints to corrected variables:
+        - Humidity: [0, 100] and max >= mean >= min
+        - Pressure: max >= min, both > 0
+        - Wind: >= 0, max >= mean
         """
-        # -- Humedad --
+        # -- Humidity --
         for hv in ('humidity_min', 'humidity_max', 'humidity_mean'):
             val = record.get(hv)
             if val is not None:
@@ -439,7 +439,7 @@ class KNeighborsCorrector:
             if h_max is not None and h_mean > h_max:
                 record['humidity_mean'] = h_max
 
-        # -- Presión --
+        # -- Pressure --
         for pv in ('pressure_min', 'pressure_max'):
             val = record.get(pv)
             if val is not None:
@@ -450,7 +450,7 @@ class KNeighborsCorrector:
         if p_min is not None and p_max is not None and p_min > p_max:
             record['pressure_min'], record['pressure_max'] = p_max, p_min
 
-        # -- Viento --
+        # -- Wind --
         for wv in ('wind_speed_mean', 'wind_speed_max'):
             val = record.get(wv)
             if val is not None:
@@ -462,12 +462,12 @@ class KNeighborsCorrector:
             record['wind_speed_mean'], record['wind_speed_max'] = w_max, w_mean
 
     # ================================================================
-    # Utilidades
+    # Utilities
     # ================================================================
 
     @staticmethod
     def _get_month(record: Dict) -> Optional[int]:
-        """Extrae el mes de un registro (campo 'date' YYYY-MM-DD)."""
+        """Extract month from a record ('date' field YYYY-MM-DD)."""
         date_str = record.get('date')
         if not date_str:
             return None

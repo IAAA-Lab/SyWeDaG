@@ -42,18 +42,18 @@ def _selected_source_missing_api_key(config):
 def show_api_key_required_modal(source_name):
     """Show modal dialog when selected source requires an API key."""
     st.markdown(
-        f"El origen de datos **{source_name}** requiere una API key para continuar."
+        f"The data source **{source_name}** requires an API key to continue."
     )
-    st.markdown("Ve a **Ajustes** e introduce una API key.")
+    st.markdown("Go to **Settings** and enter an API key.")
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("IR A AJUSTES", key="go_settings_from_api_modal", use_container_width=True):
+        if st.button("GO TO SETTINGS", key="go_settings_from_api_modal", use_container_width=True):
             st.session_state.current_page = "settings"
             st.rerun()
 
     with col2:
-        if st.button("CERRAR", key="close_api_modal", use_container_width=True):
+        if st.button("CLOSE", key="close_api_modal", use_container_width=True):
             st.rerun()
 
 def add_country_polygons(m, config):
@@ -169,7 +169,6 @@ def render_map(config):
     if st.button("SELECT", 
                  key="select_button", 
                  disabled=not has_selection,
-                 #type="primary" if has_selection else "secondary",
                  use_container_width=False):
         missing_api_key, source_name = _selected_source_missing_api_key(config)
         if missing_api_key:

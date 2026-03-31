@@ -22,11 +22,11 @@ def fill_missing_days(daily_records: List[dict]) -> List[dict]:
     if not daily_records:
         return []
 
-    daily_records = sorted(daily_records, key=lambda x: x.get('fecha', ''))
-    records_by_date = {record['fecha']: record for record in daily_records}
+    daily_records = sorted(daily_records, key=lambda x: x.get('date', ''))
+    records_by_date = {record['date']: record for record in daily_records}
 
-    start_date = datetime.strptime(daily_records[0]['fecha'], '%Y-%m-%d').date()
-    end_date = datetime.strptime(daily_records[-1]['fecha'], '%Y-%m-%d').date()
+    start_date = datetime.strptime(daily_records[0]['date'], '%Y-%m-%d').date()
+    end_date = datetime.strptime(daily_records[-1]['date'], '%Y-%m-%d').date()
 
     complete_records = []
     current_date = start_date
@@ -83,7 +83,7 @@ def _extrapolate_daily_record(reference_record: dict, target_date: str) -> dict:
         Extrapolated daily record with values similar to the reference
     """
     extrapolated = reference_record.copy()
-    extrapolated['fecha'] = target_date
+    extrapolated['date'] = target_date
     return extrapolated
 
 
@@ -140,85 +140,85 @@ def _interpolate_daily_record(prev_record: dict, next_record: dict, target_date:
         return None
 
     interpolated_record = {
-        'fecha': target_date,
-        'indicativo': prev_record.get('indicativo') or next_record.get('indicativo'),
-        'nombre': prev_record.get('nombre') or next_record.get('nombre'),
-        'provincia': prev_record.get('provincia') or next_record.get('provincia'),
-        'altitud': prev_record.get('altitud') or next_record.get('altitud'),
+        'date': target_date,
+        'station_id': prev_record.get('station_id') or next_record.get('station_id'),
+        'station_name': prev_record.get('station_name') or next_record.get('station_name'),
+        'province': prev_record.get('province') or next_record.get('province'),
+        'altitude': prev_record.get('altitude') or next_record.get('altitude'),
     }
 
-    interpolated_record['tmed'] = interpolate_value('tmed', 'float')
-    interpolated_record['tmin'] = interpolate_value('tmin', 'float')
-    interpolated_record['tmax'] = interpolate_value('tmax', 'float')
+    interpolated_record['temperature_mean'] = interpolate_value('temperature_mean', 'float')
+    interpolated_record['temperature_min'] = interpolate_value('temperature_min', 'float')
+    interpolated_record['temperature_max'] = interpolate_value('temperature_max', 'float')
 
-    interpolated_record['horatmin'] = interpolate_value('horatmin', 'string')
-    interpolated_record['horatmax'] = interpolate_value('horatmax', 'string')
+    interpolated_record['hour_tmin'] = interpolate_value('hour_tmin', 'string')
+    interpolated_record['hour_tmax'] = interpolate_value('hour_tmax', 'string')
 
-    interpolated_record['prec'] = interpolate_value('prec', 'float')
+    interpolated_record['precipitation'] = interpolate_value('precipitation', 'float')
 
-    interpolated_record['dir'] = interpolate_value('dir', 'string')
-    interpolated_record['velmedia'] = interpolate_value('velmedia', 'float')
-    interpolated_record['racha'] = interpolate_value('racha', 'float')
-    interpolated_record['horaracha'] = interpolate_value('horaracha', 'string')
+    interpolated_record['wind_direction'] = interpolate_value('wind_direction', 'string')
+    interpolated_record['wind_speed_mean'] = interpolate_value('wind_speed_mean', 'float')
+    interpolated_record['wind_speed_max'] = interpolate_value('wind_speed_max', 'float')
+    interpolated_record['hour_wind_max'] = interpolate_value('hour_wind_max', 'string')
 
-    interpolated_record['hrmedia'] = interpolate_value('hrmedia', 'int')
-    interpolated_record['hrmin'] = interpolate_value('hrmin', 'int')
-    interpolated_record['hrmax'] = interpolate_value('hrmax', 'int')
-    interpolated_record['horahrmin'] = interpolate_value('horahrmin', 'string')
-    interpolated_record['horahrmax'] = interpolate_value('horahrmax', 'string')
+    interpolated_record['humidity_mean'] = interpolate_value('humidity_mean', 'int')
+    interpolated_record['humidity_min'] = interpolate_value('humidity_min', 'int')
+    interpolated_record['humidity_max'] = interpolate_value('humidity_max', 'int')
+    interpolated_record['hour_hrmin'] = interpolate_value('hour_hrmin', 'string')
+    interpolated_record['hour_hrmax'] = interpolate_value('hour_hrmax', 'string')
 
-    interpolated_record['presmin'] = interpolate_value('presmin', 'float')
-    interpolated_record['presmax'] = interpolate_value('presmax', 'float')
-    interpolated_record['horapresmin'] = interpolate_value('horapresmin', 'string')
-    interpolated_record['horapresmax'] = interpolate_value('horapresmax', 'string')
+    interpolated_record['pressure_min'] = interpolate_value('pressure_min', 'float')
+    interpolated_record['pressure_max'] = interpolate_value('pressure_max', 'float')
+    interpolated_record['hour_presmin'] = interpolate_value('hour_presmin', 'string')
+    interpolated_record['hour_presmax'] = interpolate_value('hour_presmax', 'string')
 
     return interpolated_record
 
 
 def interpolate_missing_values_in_period(daily_records: List[dict]) -> None:
     """
-    Interpola valores faltantes (NULLs) dentro de días existentes.
+    Interpolate missing values (NULLs) within existing days.
 
-    Detecta cuales variables nunca se devuelven (para no interpolarlas)
-    y para las variables que sí se devuelven pero tienen NULLs,
-    interpola esos valores usando días cercanos.
+    Detect which variables are never returned (so they are not interpolated),
+    and for variables that are returned but contain NULLs,
+    interpolate those values using nearby days.
 
-    Si hay días anteriores y posteriores, interpola entre ellos.
-    Si solo hay día anterior, extrapola hacia adelante usando ese día.
-    Si solo hay día posterior, extrapola hacia atrás usando ese día.
-    Si no hay días con valores cercanos, el NULL se mantiene.
+    If there are previous and next days, interpolate between them.
+    If only a previous day exists, extrapolate forward using that day.
+    If only a next day exists, extrapolate backward using that day.
+    If there are no nearby values, NULL is preserved.
 
-    También interpola los campos de horas y dirección de viento.
+    It also interpolates hour fields and wind direction.
 
     Args:
-        daily_records: Lista de registros diarios (modificada in-place)
+        daily_records: List of daily records (modified in-place)
     """
     if not daily_records or len(daily_records) < 2:
         return
 
     numeric_vars_keys = {
-        'tmin': ['tmin'],
-        'tmax': ['tmax'],
-        'tmed': ['tmed'],
-        'prec': ['prec'],
-        'velmedia': ['velmedia', 'velMedia'],
-        'racha': ['racha'],
-        'hrmin': ['hrmin', 'hrMin'],
-        'hrmax': ['hrmax', 'hrMax'],
-        'hrmedia': ['hrmedia', 'hrMedia'],
-        'presmin': ['presmin', 'presMin'],
-        'presmax': ['presmax', 'presMax']
+        'temperature_min': ['temperature_min'],
+        'temperature_max': ['temperature_max'],
+        'temperature_mean': ['temperature_mean'],
+        'precipitation': ['precipitation'],
+        'wind_speed_mean': ['wind_speed_mean'],
+        'wind_speed_max': ['wind_speed_max'],
+        'humidity_min': ['humidity_min'],
+        'humidity_max': ['humidity_max'],
+        'humidity_mean': ['humidity_mean'],
+        'pressure_min': ['pressure_min'],
+        'pressure_max': ['pressure_max'],
     }
 
     string_vars_keys = {
-        'horatmin': ['horatmin'],
-        'horatmax': ['horatmax'],
-        'horaracha': ['horaracha'],
-        'horaHrMin': ['horaHrMin', 'horahrmin'],
-        'horaHrMax': ['horaHrMax', 'horahrmax'],
-        'horaPresMin': ['horaPresMin', 'horapresmin'],
-        'horaPresMax': ['horaPresMax', 'horapresmax'],
-        'dir': ['dir']
+        'hour_tmin': ['hour_tmin'],
+        'hour_tmax': ['hour_tmax'],
+        'hour_wind_max': ['hour_wind_max'],
+        'hour_hrmin': ['hour_hrmin'],
+        'hour_hrmax': ['hour_hrmax'],
+        'hour_presmin': ['hour_presmin'],
+        'hour_presmax': ['hour_presmax'],
+        'wind_direction': ['wind_direction'],
     }
 
     actual_keys_used = {}
@@ -357,26 +357,26 @@ def _convert_weather_data_to_treatment_records(weather_data: WeatherData) -> Lis
     for record in weather_data.daily_records:
         treatment_records.append(
             {
-                'fecha': record.date,
-                'tmin': record.temperature_min,
-                'tmax': record.temperature_max,
-                'tmed': record.temperature_mean,
-                'horatmin': record.hour_tmin,
-                'horatmax': record.hour_tmax,
-                'prec': record.precipitation,
-                'velmedia': record.wind_speed_mean,
-                'racha': record.wind_speed_max,
-                'dir': record.wind_direction,
-                'horaracha': record.hour_wind_max,
-                'hrMin': record.humidity_min,
-                'hrMax': record.humidity_max,
-                'hrMedia': record.humidity_mean,
-                'horaHrMin': record.hour_hrmin,
-                'horaHrMax': record.hour_hrmax,
-                'presMin': record.pressure_min,
-                'presMax': record.pressure_max,
-                'horaPresMin': record.hour_presmin,
-                'horaPresMax': record.hour_presmax,
+                'date': record.date,
+                'temperature_min': record.temperature_min,
+                'temperature_max': record.temperature_max,
+                'temperature_mean': record.temperature_mean,
+                'hour_tmin': record.hour_tmin,
+                'hour_tmax': record.hour_tmax,
+                'precipitation': record.precipitation,
+                'wind_speed_mean': record.wind_speed_mean,
+                'wind_speed_max': record.wind_speed_max,
+                'wind_direction': record.wind_direction,
+                'hour_wind_max': record.hour_wind_max,
+                'humidity_min': record.humidity_min,
+                'humidity_max': record.humidity_max,
+                'humidity_mean': record.humidity_mean,
+                'hour_hrmin': record.hour_hrmin,
+                'hour_hrmax': record.hour_hrmax,
+                'pressure_min': record.pressure_min,
+                'pressure_max': record.pressure_max,
+                'hour_presmin': record.hour_presmin,
+                'hour_presmax': record.hour_presmax,
             }
         )
     return treatment_records
@@ -386,26 +386,26 @@ def _convert_treatment_records_to_weather_data(treatment_records: List[dict]) ->
     daily_records = []
     for daily_record in treatment_records:
         record = DailyWeatherRecord(
-            date=daily_record.get('fecha', ''),
-            temperature_min=parse_float(daily_record.get('tmin')),
-            temperature_max=parse_float(daily_record.get('tmax')),
-            temperature_mean=parse_float(daily_record.get('tmed')),
-            hour_tmin=daily_record.get('horatmin'),
-            hour_tmax=daily_record.get('horatmax'),
-            precipitation=parse_float(daily_record.get('prec')),
-            wind_speed_mean=parse_float(daily_record.get('velmedia')),
-            wind_speed_max=parse_float(daily_record.get('racha')),
-            wind_direction=daily_record.get('dir'),
-            hour_wind_max=daily_record.get('horaracha'),
-            humidity_min=parse_int(daily_record.get('hrMin')),
-            humidity_max=parse_int(daily_record.get('hrMax')),
-            humidity_mean=parse_int(daily_record.get('hrMedia')),
-            hour_hrmin=daily_record.get('horaHrMin'),
-            hour_hrmax=daily_record.get('horaHrMax'),
-            pressure_min=parse_float(daily_record.get('presMin')),
-            pressure_max=parse_float(daily_record.get('presMax')),
-            hour_presmin=daily_record.get('horaPresMin'),
-            hour_presmax=daily_record.get('horaPresMax'),
+            date=daily_record.get('date', ''),
+            temperature_min=parse_float(daily_record.get('temperature_min')),
+            temperature_max=parse_float(daily_record.get('temperature_max')),
+            temperature_mean=parse_float(daily_record.get('temperature_mean')),
+            hour_tmin=daily_record.get('hour_tmin'),
+            hour_tmax=daily_record.get('hour_tmax'),
+            precipitation=parse_float(daily_record.get('precipitation')),
+            wind_speed_mean=parse_float(daily_record.get('wind_speed_mean')),
+            wind_speed_max=parse_float(daily_record.get('wind_speed_max')),
+            wind_direction=daily_record.get('wind_direction'),
+            hour_wind_max=daily_record.get('hour_wind_max'),
+            humidity_min=parse_int(daily_record.get('humidity_min')),
+            humidity_max=parse_int(daily_record.get('humidity_max')),
+            humidity_mean=parse_int(daily_record.get('humidity_mean')),
+            hour_hrmin=daily_record.get('hour_hrmin'),
+            hour_hrmax=daily_record.get('hour_hrmax'),
+            pressure_min=parse_float(daily_record.get('pressure_min')),
+            pressure_max=parse_float(daily_record.get('pressure_max')),
+            hour_presmin=daily_record.get('hour_presmin'),
+            hour_presmax=daily_record.get('hour_presmax'),
         )
         daily_records.append(record)
 

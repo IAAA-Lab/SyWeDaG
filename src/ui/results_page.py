@@ -185,7 +185,7 @@ def render_results_page():
             plot_df = df_filtered[['datetime', param_key]].dropna(subset=[param_key])
             chart_note = "Hourly data"
         
-        # Verificar si hay datos válidos para la variable seleccionada
+        # Check whether there is valid data for the selected variable
         if plot_df.empty:
             st.warning(
                 f"⚠️ No data available for {param_cfg['label'].lower()} in the selected period. "

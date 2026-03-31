@@ -463,18 +463,18 @@ def insert_generated_hourly_data(generated_hourly):
 
 def get_historical_daily_data(source: str, id_station, start_date: str, end_date: str):
     """
-    Recupera datos históricos diarios de una estación entre dos fechas.
+    Retrieve daily historical data for a station between two dates.
     
     Args:
-        source: Fuente de datos (ej: 'AEMET')
-        id_station: ID de la estación
-        start_date: Fecha de inicio (formato 'YYYY-MM-DD')
-        end_date: Fecha de fin (formato 'YYYY-MM-DD')
+        source: Data source (e.g., 'AEMET')
+        id_station: Station ID
+        start_date: Start date (format 'YYYY-MM-DD')
+        end_date: End date (format 'YYYY-MM-DD')
     
     Returns:
-        Lista de diccionarios con los datos históricos diarios
+        List of dictionaries with daily historical data
     """
-    # Normalizar fechas (quitar parte horaria si viene)
+    # Normalize dates (strip time component if present)
     start_date = start_date[:10]
     end_date = end_date[:10]
     
@@ -528,13 +528,13 @@ def get_historical_daily_data(source: str, id_station, start_date: str, end_date
 
 def get_generated_hourly_data(job_id: int):
     """
-    Recupera todos los datos horarios generados para un job específico.
+    Retrieve all generated hourly data for a specific job.
     
     Args:
-        job_id: ID del trabajo de generación
+        job_id: Generation job ID
     
     Returns:
-        Lista de diccionarios con los datos horarios generados
+        List of dictionaries with generated hourly data
     """
     db_path = get_db_path()
     conn = sql.connect(str(db_path))
@@ -567,13 +567,13 @@ def get_generated_hourly_data(job_id: int):
 
 def get_monthly_predictions(job_id: int):
     """
-    Recupera las predicciones mensuales para un job.
+    Retrieve monthly predictions for a job.
     
     Args:
-        job_id: ID del trabajo de generación
+        job_id: Generation job ID
     
     Returns:
-        Lista de diccionarios con las predicciones mensuales
+        List of dictionaries with monthly predictions
     """
     db_path = get_db_path()
     conn = sql.connect(str(db_path))
@@ -604,13 +604,13 @@ def get_monthly_predictions(job_id: int):
 
 def get_generation_job_info(job_id: int):
     """
-    Recupera la información del job de generación.
+    Retrieve generation job metadata.
     
     Args:
-        job_id: ID del trabajo de generación
+        job_id: Generation job ID
     
     Returns:
-        Diccionario con la información del job o None si no existe
+        Dictionary with job information, or None if it does not exist
     """
     db_path = get_db_path()
     conn = sql.connect(str(db_path))
