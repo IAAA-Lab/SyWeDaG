@@ -18,6 +18,7 @@ from typing import List, Dict, Optional, Tuple
 from math import cos, sin, pi, exp
 import numpy as np
 import pandas as pd
+from utils.system_utils import safe_print
 
 from database.sqliteDB import (
     get_historical_daily_data, 
@@ -76,7 +77,7 @@ class SyntheticWeatherGenerator:
         # Sort by date
         self.historical_data.sort(key=lambda x: x['date'])
         
-        print(f"📊 Historical daily data loaded: {len(self.historical_data)} records")
+        safe_print(f"📊 Historical daily data loaded: {len(self.historical_data)} records")
     
     # ========================================================================
     # STEP 1: Cycle daily records
@@ -163,7 +164,7 @@ class SyntheticWeatherGenerator:
             current_date += timedelta(days=1)
         
         # 📊 Synthetic daily records generated from historical cycle
-        print(f"📅 Cycle completed: {len(generated_daily)} daily records generated")
+        safe_print(f"📅 Cycle completed: {len(generated_daily)} daily records generated")
         return generated_daily
     
     # ========================================================================
@@ -438,7 +439,7 @@ class SyntheticWeatherGenerator:
             first_date = datetime.strptime(daily_data[indices[0]]['date'], '%Y-%m-%d')
             month_names = ['January', 'February', 'March', 'April', 'May', 'June',
                        'July', 'August', 'September', 'October', 'November', 'December']
-            print(f"🌧️ Generating 2 rain periods for "
+            safe_print(f"🌧️ Generating 2 rain periods for "
                   f"{month_names[first_date.month - 1]} {first_date.year} "
                 f"({target_label}: {target_prec:.1f} mm/day)")
             self._generate_rain_periods(daily_data, indices, target_prec)
@@ -1064,7 +1065,7 @@ class SyntheticWeatherGenerator:
                 var_label = {'temperature_max': 'Tmax', 'temperature_mean': 'Tmean', 'temperature_min': 'Tmin'}[temp_var]
                 
                 if diff > 1.0:
-                    print(f"  ⚠️ {var_label} {year}-{month:02d}: Predicted mean={pred_mean:.1f}, Actual mean={actual_mean:.1f}, Difference={diff:.2f}°C")
+                    safe_print(f"  ⚠️ {var_label} {year}-{month:02d}: Predicted mean={pred_mean:.1f}, Actual mean={actual_mean:.1f}, Difference={diff:.2f}°C")
                     all_pass = False
                 
                 # Validate bounds
@@ -1072,13 +1073,13 @@ class SyntheticWeatherGenerator:
                 if pd.notna(pred_min):
                     actual_min = min(values)
                     if actual_min < float(pred_min) - 0.1:
-                        print(f"  ❌  {var_label} {year}-{month:02d}: Actual minimum ({actual_min:.1f}°C) below prediction ({pred_min:.1f}°C)")
+                        safe_print(f"  ❌  {var_label} {year}-{month:02d}: Actual minimum ({actual_min:.1f}°C) below prediction ({pred_min:.1f}°C)")
                 
                 pred_max = pred_data.get('max')
                 if pd.notna(pred_max):
                     actual_max = max(values)
                     if actual_max > float(pred_max) + 0.1:
-                        print(f"  ❌  {var_label} {year}-{month:02d}: Actual maximum ({actual_max:.1f}°C) above prediction ({pred_max:.1f}°C)")
+                        safe_print(f"  ❌  {var_label} {year}-{month:02d}: Actual maximum ({actual_max:.1f}°C) above prediction ({pred_max:.1f}°C)")
             
             # Validate PRECIPITATION
             pred_key = (year, month, 'precipitation')
@@ -1095,7 +1096,7 @@ class SyntheticWeatherGenerator:
                     pred_mean_val = float(pred_mean)
                     diff = abs(actual_mean - pred_mean_val)
                     if diff > 0.5:
-                        print(f"  ⚠️ Precip {year}-{month:02d}: Predicted mean={pred_mean_val:.1f} mm/day, Actual mean={actual_mean:.1f} mm/day, Difference={diff:.2f} mm")
+                        safe_print(f"  ⚠️ Precip {year}-{month:02d}: Predicted mean={pred_mean_val:.1f} mm/day, Actual mean={actual_mean:.1f} mm/day, Difference={diff:.2f} mm")
                         all_pass = False
                     
                     # Validate bounds (compare means directly)
@@ -1103,13 +1104,13 @@ class SyntheticWeatherGenerator:
                     if pd.notna(pred_min):
                         pred_min_val = float(pred_min)
                         if actual_mean < pred_min_val - 0.1:
-                            print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) below predicted minimum ({pred_min_val:.1f} mm/day)")
+                            safe_print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) below predicted minimum ({pred_min_val:.1f} mm/day)")
                     
                     pred_max = pred_data.get('max')
                     if pd.notna(pred_max):
                         pred_max_val = float(pred_max)
                         if actual_mean > pred_max_val + 0.1:
-                            print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) above predicted maximum ({pred_max_val:.1f} mm/day)")
+                            safe_print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) above predicted maximum ({pred_max_val:.1f} mm/day)")
         
         return all_pass
     
@@ -1148,7 +1149,7 @@ class SyntheticWeatherGenerator:
             date = daily_rec['date']
             
             if date not in hourly_by_date:
-                print(f"  ❌ {date}: No hourly data for this day")
+                safe_print(f"  ❌ {date}: No hourly data for this day")
                 all_pass = False
                 continue
             
@@ -1156,7 +1157,7 @@ class SyntheticWeatherGenerator:
             
             # Check there are 24 hourly records
             if len(hourly_recs) != 24:
-                print(f"  ❌ {date}: Expected 24 hourly records, found {len(hourly_recs)}")
+                safe_print(f"  ❌ {date}: Expected 24 hourly records, found {len(hourly_recs)}")
                 all_pass = False
                 continue
             
@@ -1170,7 +1171,7 @@ class SyntheticWeatherGenerator:
                 if daily_tmean is not None:
                     diff_temp = abs(mean_hourly_temp - daily_tmean)
                     if diff_temp > 1.5:
-                        print(f"  ⚠️  {date}: Hourly mean temp ({mean_hourly_temp:.1f}°C) vs daily ({daily_tmean:.1f}°C), Diff={diff_temp:.2f}°C")
+                        safe_print(f"  ⚠️  {date}: Hourly mean temp ({mean_hourly_temp:.1f}°C) vs daily ({daily_tmean:.1f}°C), Diff={diff_temp:.2f}°C")
                 
                 # Validate ranges
                 hourly_tmin = min(hourly_temps)
@@ -1179,10 +1180,10 @@ class SyntheticWeatherGenerator:
                 daily_tmax = daily_rec.get('temperature_max') or hourly_tmax
                 
                 if hourly_tmin < daily_tmin - 0.1:
-                    print(f"  ⚠️  {date}: Hourly Tmin ({hourly_tmin:.1f}°C) below daily ({daily_tmin:.1f}°C)")
+                    safe_print(f"  ⚠️  {date}: Hourly Tmin ({hourly_tmin:.1f}°C) below daily ({daily_tmin:.1f}°C)")
                 
                 if hourly_tmax > daily_tmax + 0.1:
-                    print(f"  ⚠️  {date}: Hourly Tmax ({hourly_tmax:.1f}°C) above daily ({daily_tmax:.1f}°C)")
+                    safe_print(f"  ⚠️  {date}: Hourly Tmax ({hourly_tmax:.1f}°C) above daily ({daily_tmax:.1f}°C)")
             
             # Validate PRECIPITATION
             hourly_precips = [r.get('precipitation') or 0 for r in hourly_recs]
@@ -1191,7 +1192,7 @@ class SyntheticWeatherGenerator:
             
             diff_precip = abs(total_hourly_precip - daily_precip)
             if diff_precip > 0.5:
-                print(f"  ⚠️  {date}: Hourly total precip ({total_hourly_precip:.1f} mm) vs daily ({daily_precip:.1f} mm), Diff={diff_precip:.2f} mm")
+                safe_print(f"  ⚠️  {date}: Hourly total precip ({total_hourly_precip:.1f} mm) vs daily ({daily_precip:.1f} mm), Diff={diff_precip:.2f} mm")
             
             # Validate HUMIDITY
             hourly_humidities = [r.get('humidity') for r in hourly_recs 
@@ -1203,7 +1204,7 @@ class SyntheticWeatherGenerator:
                 if daily_humid_mean is not None:
                     diff_humid = abs(mean_hourly_humid - daily_humid_mean)
                     if diff_humid > 5:
-                        print(f"  ⚠️  {date}: Hourly humidity mean ({mean_hourly_humid:.1f}%) vs daily ({daily_humid_mean:.1f}%), Diff={diff_humid:.1f}%")
+                        safe_print(f"  ⚠️  {date}: Hourly humidity mean ({mean_hourly_humid:.1f}%) vs daily ({daily_humid_mean:.1f}%), Diff={diff_humid:.1f}%")
             
             # Validate PRESSURE
             hourly_pressures = [r.get('pressure') for r in hourly_recs 
@@ -1218,7 +1219,7 @@ class SyntheticWeatherGenerator:
                 
                 diff_pres = abs(mean_hourly_pres - daily_pres_mean)
                 if diff_pres > 2.0:
-                    print(f"  ⚠️  {date}: Hourly pressure mean ({mean_hourly_pres:.1f} hPa) vs daily ({daily_pres_mean:.1f} hPa), Diff={diff_pres:.1f} hPa")
+                    safe_print(f"  ⚠️  {date}: Hourly pressure mean ({mean_hourly_pres:.1f} hPa) vs daily ({daily_pres_mean:.1f} hPa), Diff={diff_pres:.1f} hPa")
             
             # Validate WIND
             hourly_winds = [r.get('wind_speed') for r in hourly_recs 
@@ -1232,13 +1233,13 @@ class SyntheticWeatherGenerator:
                 if daily_wind_mean is not None:
                     diff_wind = abs(mean_hourly_wind - daily_wind_mean)
                     if diff_wind > 0.5:
-                        print(f"  ⚠️  {date}: Hourly wind mean ({mean_hourly_wind:.1f} m/s) vs daily ({daily_wind_mean:.1f} m/s), Diff={diff_wind:.2f} m/s")
+                        safe_print(f"  ⚠️  {date}: Hourly wind mean ({mean_hourly_wind:.1f} m/s) vs daily ({daily_wind_mean:.1f} m/s), Diff={diff_wind:.2f} m/s")
                 
                 # Validate expected max wind gust is reached
                 if daily_wind_max is not None:
                     diff_wind_max = abs(max_hourly_wind - daily_wind_max)
                     if diff_wind_max > 0.1:
-                        print(f"  ⚠️  {date}: Max wind gust does not reach expected value. Hourly={max_hourly_wind:.1f} m/s, Expected={daily_wind_max:.1f} m/s, Diff={diff_wind_max:.2f} m/s")
+                        safe_print(f"  ⚠️  {date}: Max wind gust does not reach expected value. Hourly={max_hourly_wind:.1f} m/s, Expected={daily_wind_max:.1f} m/s, Diff={diff_wind_max:.2f} m/s")
         
         return all_pass
     
@@ -1275,7 +1276,7 @@ class SyntheticWeatherGenerator:
         """
         # 1. Generate synthetic daily data (historical cycle)
         daily_data = self._generate_daily_synthetic()
-        print(f"📅 Generated {len(daily_data)} synthetic daily records")
+        safe_print(f"📅 Generated {len(daily_data)} synthetic daily records")
         
         # 2. Adjust to monthly predictions if provided
         if predictions_df is not None and not predictions_df.empty:
@@ -1286,42 +1287,42 @@ class SyntheticWeatherGenerator:
             #      Non-numeric variables (wind direction, hour fields)
             #      remain as in the historical cycle.
             if correction_method == 'xgboost':
-                print("🔄 Applying XGBoost model (sliding window) for secondary variables...")
+                safe_print("🔄 Applying XGBoost model (sliding window) for secondary variables...")
                 xgb_model = XGBoostWeatherModel(window_size=5)
                 daily_data = xgb_model.correct(
                     adjusted_data=daily_data,
                     historical_data=self.historical_data
                 )
-                print("✅ XGBoost correction applied")
+                safe_print("✅ XGBoost correction applied")
             else:  # 'knn'
                 # K-Neighbors correction: adapt non-modified variables
                 # (wind, humidity, pressure) using the most similar
                 # historical days in temperature and precipitation.
-                print("🔄 Applying K-Neighbors correction for secondary variables...")
+                safe_print("🔄 Applying K-Neighbors correction for secondary variables...")
                 knn_corrector = KNeighborsCorrector(k=3, month_weight=0.25)
                 daily_data = knn_corrector.correct(
                     adjusted_data=daily_data,
                     historical_data=self.historical_data
                 )
-                print("✅ K-Neighbors correction applied")
+                safe_print("✅ K-Neighbors correction applied")
         
         # 3. Generate hourly data from daily data
         hourly_data = self._generate_hourly_from_daily(daily_data)
-        print(f"🕐 Generated {len(hourly_data)} hourly records")
+        safe_print(f"🕐 Generated {len(hourly_data)} hourly records")
         
         # 4. Verify generated data matches daily data (and/or predictions)
         if predictions_df is not None and not predictions_df.empty:
-            print("🔍 Verifying consistency of daily data vs monthly predictions...")
+            safe_print("🔍 Verifying consistency of daily data vs monthly predictions...")
             if self._verify_daily_vs_predictions(daily_data, predictions_df):
-                print("✅ Daily data vs predictions: consistency verified")
+                safe_print("✅ Daily data vs predictions: consistency verified")
             else:
-                print("⚠️ Discrepancies detected in daily data vs predictions (see errors above)")
+                safe_print("⚠️ Discrepancies detected in daily data vs predictions (see errors above)")
         
-        print("🔍 Verifying consistency of hourly data vs daily data...")
+        safe_print("🔍 Verifying consistency of hourly data vs daily data...")
         if self._verify_hourly_vs_daily(hourly_data, daily_data):
-            print("✅ Hourly data vs daily data: consistency verified")
+            safe_print("✅ Hourly data vs daily data: consistency verified")
         else:
-            print("⚠️ Discrepancies detected in hourly data vs daily data (see errors above)")
+            safe_print("⚠️ Discrepancies detected in hourly data vs daily data (see errors above)")
         
         return daily_data, hourly_data, len(hourly_data)
 
@@ -1374,7 +1375,7 @@ class SyntheticWeatherGenerator:
                     float(row['Maximum']) if pd.notna(row.get('Maximum')) else None
                 ))
             insert_monthly_predictions(pred_tuples)
-            print(f"📊 Inserted {len(pred_tuples)} monthly predictions")
+            safe_print(f"📊 Inserted {len(pred_tuples)} monthly predictions")
         
         # 3. Generate data
         daily_data, hourly_data, hourly_count = self.generate(predictions_df, correction_method)
@@ -1399,7 +1400,7 @@ class SyntheticWeatherGenerator:
                 rec.get('pressure_max')
             ))
         insert_generated_daily_data(daily_tuples)
-        print(f"📅 Inserted {len(daily_tuples)} generated daily records")
+        safe_print(f"📅 Inserted {len(daily_tuples)} generated daily records")
         
         # 5. Insert generated hourly data
         hourly_tuples = []
@@ -1415,9 +1416,9 @@ class SyntheticWeatherGenerator:
                 rec.get('pressure')
             ))
         insert_generated_hourly_data(hourly_tuples)
-        print(f"🕐 Inserted {len(hourly_tuples)} generated hourly records")
+        safe_print(f"🕐 Inserted {len(hourly_tuples)} generated hourly records")
         
-        print(f"✅ Generation completed. Job ID: {job_id}")
+        safe_print(f"✅ Generation completed. Job ID: {job_id}")
         
         return job_id, hourly_count, hourly_data
     

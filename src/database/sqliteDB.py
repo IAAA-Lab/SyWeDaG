@@ -1,5 +1,5 @@
 import sqlite3 as sql
-from utils.system_utils import get_resource_path
+from utils.system_utils import get_resource_path, safe_print
 
 def get_db_path():
     """Get database path"""
@@ -639,5 +639,5 @@ def get_generation_job_info(job_id: int):
 
 if __name__ == "__main__":
     init_database()
-    print("✅ Database initialized successfully")
+    safe_print("✅ Database initialized successfully")
 

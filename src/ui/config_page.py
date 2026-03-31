@@ -6,7 +6,7 @@ import streamlit as st
 from datetime import datetime
 import pandas as pd
 from ui.styles.config_styles import apply_config_styles
-from utils.system_utils import save_bytes_to_downloads
+from utils.system_utils import save_bytes_to_downloads, safe_print
 from application.config_services import (
     validate_predictions,
     get_mandatory_weather_data,
@@ -356,7 +356,7 @@ def render_config_page(config):
                 
             except ValueError as e:
                 error_message = str(e)
-                print(f"Error: {error_message}")
+                safe_print(f"Error: {error_message}")
                 modal_placeholder.empty()
                 st.error(f"❌ {error_message}")
                 st.session_state.generating = False
@@ -364,8 +364,8 @@ def render_config_page(config):
                 import traceback
                 error_msg = traceback.format_exc()
                 error_message = f"Unexpected error: {str(e)}"
-                print(f"Error getting mandatory data: {e}")
-                print(error_msg)
+                safe_print(f"Error getting mandatory data: {e}")
+                safe_print(error_msg)
                 modal_placeholder.empty()
                 st.error(f"❌ {error_message}")
                 st.session_state.generating = False

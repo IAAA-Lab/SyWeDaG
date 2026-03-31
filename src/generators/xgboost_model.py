@@ -46,6 +46,7 @@ from xgboost import XGBRegressor
 from sklearn.multioutput import MultiOutputRegressor
 
 from generators.k_neighbors import KNeighborsCorrector
+from utils.system_utils import safe_print
 
 
 # ---------------------------------------------------------------------------
@@ -129,21 +130,21 @@ class XGBoostWeatherModel:
         excluded_targets = set(ALL_TARGET_VARS_NUMERIC) - set(self.valid_target_vars)
 
         if excluded_features:
-            print(
+            safe_print(
                 f"  ℹ️  XGBoost: Excluded missing input features: "
                 f"{', '.join(sorted(excluded_features))}"
             )
         if excluded_targets:
-            print(
+            safe_print(
                 f"  ℹ️  XGBoost: Excluded all-None target columns: "
                 f"{', '.join(sorted(excluded_targets))}"
             )
 
-        print(
+        safe_print(
             f"  ✅ Using {len(self.valid_input_features)} input features: "
             f"{self.valid_input_features}"
         )
-        print(
+        safe_print(
             f"  ✅ Using {len(self.valid_target_vars)} target variables: "
             f"{self.valid_target_vars}"
         )
@@ -231,14 +232,14 @@ class XGBoostWeatherModel:
             self._detect_valid_columns(historical_data)
 
         if not self.valid_target_vars or not self.valid_input_features:
-            print(
+            safe_print(
                 "  ⚠️  XGBoost: Not enough valid columns for training. "
                 "Model cannot be trained."
             )
             return
 
         if len(historical_data) < self.window_size + 1:
-            print(
+            safe_print(
                 f"  ⚠️  XGBoost: Not enough historical records "
                 f"({len(historical_data)}) for window_size={self.window_size}."
             )
@@ -247,10 +248,10 @@ class XGBoostWeatherModel:
         X, y = self._build_training_windows(historical_data)
 
         if X is None or len(X) == 0:
-            print("  ⚠️  XGBoost: No valid training windows could be built.")
+            safe_print("  ⚠️  XGBoost: No valid training windows could be built.")
             return
 
-        print(f"  ℹ️  Training with {len(X)} windows (only valid features, no imputation)")
+        safe_print(f"  ℹ️  Training with {len(X)} windows (only valid features, no imputation)")
 
         xgb_base = XGBRegressor(
             n_estimators=100,
@@ -267,7 +268,7 @@ class XGBoostWeatherModel:
         self.model.fit(X, y)
         self._is_fitted = True
 
-        print(
+        safe_print(
             f"  ✅ XGBoost trained: {len(X)} windows | "
             f"window_size={self.window_size} | "
             f"input_features={len(self.valid_input_features)} | "
@@ -462,11 +463,11 @@ class XGBoostWeatherModel:
         self._detect_valid_columns(historical_data)
 
         if not self.valid_target_vars:
-            print("  ⚠️  XGBoost: No target columns available — falling back to KNN (numeric vars only)")
+            safe_print("  ⚠️  XGBoost: No target columns available — falling back to KNN (numeric vars only)")
             return adjusted_data
 
         # -- 2. Train XGBoost -----------------------------------------
-        print(
+        safe_print(
             f"🔄 Training XGBoost model "
             f"(window_size={self.window_size})..."
         )
@@ -490,10 +491,10 @@ class XGBoostWeatherModel:
             return out
 
         if not self._is_fitted:
-            print("  ⚠️  XGBoost: Training failed — falling back to KNN (numeric vars only)")
+            safe_print("  ⚠️  XGBoost: Training failed — falling back to KNN (numeric vars only)")
             return _knn_numeric_fallback(adjusted_data)
 
-        print("✅ XGBoost model trained")
+        safe_print("✅ XGBoost model trained")
 
         # -- 3. Work-copy (preserves wind_direction, hour fields, etc.) --
         corrected = [r.copy() for r in adjusted_data]
@@ -502,23 +503,23 @@ class XGBoostWeatherModel:
         seed_days = min(self.window_size - 1, n)
 
         if seed_days > 0:
-            print(f"🔄 Applying KNN to first {seed_days} seed days (numeric vars only)...")
+            safe_print(f"🔄 Applying KNN to first {seed_days} seed days (numeric vars only)...")
             knn = KNeighborsCorrector(k=3, month_weight=0.25)
             knn_seed = knn.correct(adjusted_data[:seed_days], historical_data)
             for i, knn_rec in enumerate(knn_seed):
                 _copy_numeric(corrected[i], knn_rec)
-            print(f"✅ KNN seed applied ({seed_days} days)")
+            safe_print(f"✅ KNN seed applied ({seed_days} days)")
 
         # -- 5. XGBoost sliding window --------------------------------
         remaining = n - seed_days
         if remaining <= 0:
-            print(
+            safe_print(
                 f"  ℹ️  XGBoost: All {n} days are seed days "
                 f"(window_size={self.window_size}). KNN result kept."
             )
             return corrected
 
-        print(
+        safe_print(
             f"🔄 Applying XGBoost batch prediction to {remaining} days "
             f"(days {seed_days}–{n - 1})..."
         )
@@ -546,5 +547,5 @@ class XGBoostWeatherModel:
             for col in self.valid_target_vars:
                 corrected[i][col] = pred_record[col]
 
-        print(f"✅ XGBoost correction complete ({n} days total)")
+        safe_print(f"✅ XGBoost correction complete ({n} days total)")
         return corrected

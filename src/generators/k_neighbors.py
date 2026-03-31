@@ -39,6 +39,7 @@ from typing import List, Dict, Optional
 
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
+from utils.system_utils import safe_print
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +136,7 @@ class KNeighborsCorrector:
             self._build_feature_matrix(historical_data)
 
         if hist_matrix is None or len(hist_matrix) == 0:
-            print("  ⚠️  KNN: Not enough historical data, skipping correction")
+            safe_print("  ⚠️  KNN: Not enough historical data, skipping correction")
             return adjusted_data
 
         # -- 2. Train NearestNeighbors on historical data -------------
@@ -147,7 +148,7 @@ class KNeighborsCorrector:
         adj_raw, adj_indices = self._build_query_matrix(adjusted_data, active_ref_vars)
 
         if len(adj_raw) == 0:
-            print("  ⚠️  KNN: No adjusted day has valid features")
+            safe_print("  ⚠️  KNN: No adjusted day has valid features")
             return adjusted_data
 
         # Scale and weight month columns (same transform as historical data)
@@ -206,18 +207,18 @@ class KNeighborsCorrector:
                 p_nearest = nearest.get('precipitation', 'N/A')
                 
                 
-                print(f"\n  📍 Day {idx_corrected+1}: {new_record.get('date', 'N/A')} "
-                        f"(neighbor: {nearest.get('date', 'N/A')}) ")
-                print(f"     Temperature (Gen):      Tmin={t_min_gen}°C, Tmax={t_max_gen}°C, Tmean={t_mean_gen}°C, P={p_gen}mm")
-                print(f"     Temperature (KNeighbor): Tmin={t_min_nearest}°C, Tmax={t_max_nearest}°C, Tmean={t_mean_nearest}°C, P={p_nearest}mm")
-                print(f"     Humidity max:            {record_before['humidity_max']} → {new_record.get('humidity_max')}")
-                print(f"     Humidity min:            {record_before['humidity_min']} → {new_record.get('humidity_min')}")
-                print(f"     Humidity mean:           {record_before['humidity_mean']} → {new_record.get('humidity_mean')}")
-                print(f"     Wind mean:               {record_before['wind_speed_mean']} → {new_record.get('wind_speed_mean')}")
-                print(f"     Wind max:                {record_before['wind_speed_max']} → {new_record.get('wind_speed_max')}")
-                print(f"     Direction:               {record_before['wind_direction']} → {new_record.get('wind_direction')}")
-                print(f"     Pressure max:            {record_before['pressure_max']} → {new_record.get('pressure_max')}")
-                print(f"     Pressure min:            {record_before['pressure_min']} → {new_record.get('pressure_min')}")
+                safe_print(f"\n  📍 Day {idx_corrected+1}: {new_record.get('date', 'N/A')} "
+                       f"(neighbor: {nearest.get('date', 'N/A')}) ")
+                safe_print(f"     Temperature (Gen):      Tmin={t_min_gen}°C, Tmax={t_max_gen}°C, Tmean={t_mean_gen}°C, P={p_gen}mm")
+                safe_print(f"     Temperature (KNeighbor): Tmin={t_min_nearest}°C, Tmax={t_max_nearest}°C, Tmean={t_mean_nearest}°C, P={p_nearest}mm")
+                safe_print(f"     Humidity max:            {record_before['humidity_max']} → {new_record.get('humidity_max')}")
+                safe_print(f"     Humidity min:            {record_before['humidity_min']} → {new_record.get('humidity_min')}")
+                safe_print(f"     Humidity mean:           {record_before['humidity_mean']} → {new_record.get('humidity_mean')}")
+                safe_print(f"     Wind mean:               {record_before['wind_speed_mean']} → {new_record.get('wind_speed_mean')}")
+                safe_print(f"     Wind max:                {record_before['wind_speed_max']} → {new_record.get('wind_speed_max')}")
+                safe_print(f"     Direction:               {record_before['wind_direction']} → {new_record.get('wind_direction')}")
+                safe_print(f"     Pressure max:            {record_before['pressure_max']} → {new_record.get('pressure_max')}")
+                safe_print(f"     Pressure min:            {record_before['pressure_min']} → {new_record.get('pressure_min')}")
 
         return corrected
 
@@ -269,15 +270,15 @@ class KNeighborsCorrector:
         ]
 
         if len(all_null_vars) >= 3:
-            print(f"  ⚠️  KNN: {len(all_null_vars)} reference variables without data "
-                f"({', '.join(all_null_vars)}), canceling correction")
+            safe_print(f"  ⚠️  KNN: {len(all_null_vars)} reference variables without data "
+                       f"({', '.join(all_null_vars)}), canceling correction")
             return None, None, None, None
 
         active_ref_vars = [v for v in REFERENCE_VARS if v not in all_null_vars]
 
         if all_null_vars:
-            print(f"  ℹ️  KNN: Ignored reference variables (no data): "
-                  f"{', '.join(all_null_vars)}")
+            safe_print(f"  ℹ️  KNN: Ignored reference variables (no data): "
+                       f"{', '.join(all_null_vars)}")
 
         # -- Build matrix with active variables ------------------------
         matrix = np.array(

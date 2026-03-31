@@ -10,6 +10,7 @@ import pandas as pd
 from data_sources.source_selector import get_data_source_instance
 from generators.synthetic_generator import SyntheticWeatherGenerator
 from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
+from utils.system_utils import safe_print
 from utils.historical_data_treatment import apply_historical_treatment_if_needed
 
 METHOD_OPTIONS_MAP = {
@@ -131,9 +132,9 @@ def get_mandatory_weather_data(
 
         try:
             rows_inserted = insert_weather_stations(stations_to_insert)
-            print(f"✅ Inserted {rows_inserted} weather station(s) in DB")
+            safe_print(f"✅ Inserted {rows_inserted} weather station(s) in DB")
         except Exception as error:
-            print(f"⚠️ Error inserting stations in DB: {error}")
+            safe_print(f"⚠️ Error inserting stations in DB: {error}")
 
     if nearest_station is not None and weather_data is not None and weather_data.daily_records:
         historical_tuples = [
@@ -166,9 +167,9 @@ def get_mandatory_weather_data(
 
         try:
             rows_inserted = insert_historical_daily_data(historical_tuples)
-            print(f"✅ Inserted {rows_inserted} daily historical records in DB")
+            safe_print(f"✅ Inserted {rows_inserted} daily historical records in DB")
         except Exception as error:
-            print(f"⚠️ Error inserting historical data in DB: {error}")
+            safe_print(f"⚠️ Error inserting historical data in DB: {error}")
 
     return nearest_station, weather_data
 
@@ -196,7 +197,7 @@ def compute_generation_dates(
     if gen_start_year == datetime.now().year and gen_start_year == end_year:
         next_day = last_historical_date + timedelta(days=1)
         actual_generation_start = next_day.isoformat()
-        print(f"📅 Adjusting generation start to: {actual_generation_start}")
+        safe_print(f"📅 Adjusting generation start to: {actual_generation_start}")
 
     return actual_historical_end, actual_generation_start
 

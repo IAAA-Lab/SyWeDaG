@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from data_sources.base_source import BaseWeatherSource, WeatherStation, WeatherData, DailyWeatherRecord
 from utils.data_parsing import parse_coordinates, convert_wind_direction, parse_float, parse_int
 from utils.geospatial import calculate_distance_km
+from utils.system_utils import safe_print
 
 class AemetWeatherSource(BaseWeatherSource):
     """
@@ -76,49 +77,49 @@ class AemetWeatherSource(BaseWeatherSource):
                 # Retry on error 429 or 5xx
                 if status_code in [429] or (status_code and 500 <= status_code < 600):
                     if attempt < max_retries - 1:
-                        print(f"⚠️ AEMET Error {status_code}. Retrying in {retry_delay} seconds (attempt {attempt + 1}/{max_retries})...")
+                        safe_print(f"⚠️ AEMET Error {status_code}. Retrying in {retry_delay} seconds (attempt {attempt + 1}/{max_retries})...")
                         time.sleep(retry_delay)
                         # Increase delay for next retries
                         retry_delay = min(retry_delay * 2, 30)  # Maximum 30 seconds
                         continue
                     else:
-                        print(f"❌ AEMET Error {status_code} after {max_retries} attempts: {e}")
+                        safe_print(f"❌ AEMET Error {status_code} after {max_retries} attempts: {e}")
                         return None
                 else:
                     # Other HTTP errors - don't retry
-                    print(f"❌ AEMET HTTP Error {status_code}: {e}")
+                    safe_print(f"❌ AEMET HTTP Error {status_code}: {e}")
                     return None
                     
             except requests.ConnectionError as e:
                 # Connection error - retry
                 if attempt < max_retries - 1:
-                    print(f"⚠️ Connection error. Retrying in {retry_delay} seconds (attempt {attempt + 1}/{max_retries})...")
+                    safe_print(f"⚠️ Connection error. Retrying in {retry_delay} seconds (attempt {attempt + 1}/{max_retries})...")
                     time.sleep(retry_delay)
                     retry_delay = min(retry_delay * 2, 30)
                     continue
                 else:
-                    print(f"❌ Connection error after {max_retries} attempts: {e}")
+                    safe_print(f"❌ Connection error after {max_retries} attempts: {e}")
                     return None
                     
             except requests.Timeout as e:
                 # Timeout - retry
                 if attempt < max_retries - 1:
-                    print(f"⚠️ Connection timeout. Retrying in {retry_delay} seconds (attempt {attempt + 1}/{max_retries})...")
+                    safe_print(f"⚠️ Connection timeout. Retrying in {retry_delay} seconds (attempt {attempt + 1}/{max_retries})...")
                     time.sleep(retry_delay)
                     retry_delay = min(retry_delay * 2, 30)
                     continue
                 else:
-                    print(f"❌ Timeout after {max_retries} attempts: {e}")
+                    safe_print(f"❌ Timeout after {max_retries} attempts: {e}")
                     return None
                     
             except requests.RequestException as e:
                 # Other requests errors - don't retry
-                print(f"❌ Error fetching AEMET API: {e}")
+                safe_print(f"❌ Error fetching AEMET API: {e}")
                 return None
                 
             except Exception as e:
                 # Other unexpected errors
-                print(f"❌ Unexpected error in AEMET API: {e}")
+                safe_print(f"❌ Unexpected error in AEMET API: {e}")
                 return None
         
         return None
@@ -149,7 +150,7 @@ class AemetWeatherSource(BaseWeatherSource):
             stations_data = [stations_data]
 
         if not isinstance(stations_data, list):
-            print("❌ Unexpected format from AEMET data")
+            safe_print("❌ Unexpected format from AEMET data")
             return None
 
         # Calculate distances and find the nearest
@@ -188,11 +189,11 @@ class AemetWeatherSource(BaseWeatherSource):
                     )
 
             except (ValueError, TypeError) as e:
-                print(f"⚠️ Error processing station: {e}")
+                safe_print(f"⚠️ Error processing station: {e}")
                 continue
 
         if closest_station:
-            print(f"✅ Nearest station: {closest_station.name} at {min_distance:.2f} km")
+            safe_print(f"✅ Nearest station: {closest_station.name} at {min_distance:.2f} km")
 
         return closest_station
 
@@ -265,12 +266,12 @@ class AemetWeatherSource(BaseWeatherSource):
                 f"fechaini/{start_date_str}/fechafin/{end_date_str}/estacion/{station_id}"
             )
 
-            print(f"📥 Getting AEMET data for {station_id} ({current_date.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')})...")
+            safe_print(f"📥 Getting AEMET data for {station_id} ({current_date.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')})...")
             
             period_data = self._fetch_from_aemet_api(url)
 
             if not period_data:
-                print(f"⚠️ No data obtained for period {current_date.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
+                safe_print(f"⚠️ No data obtained for period {current_date.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
                 # Continue to next period
                 if current_date.month + 6 <= 12:
                     current_date = current_date.replace(month=current_date.month + 6)
@@ -283,7 +284,7 @@ class AemetWeatherSource(BaseWeatherSource):
                 period_data = [period_data]
 
             if not isinstance(period_data, list):
-                print(f"⚠️ Unexpected format for period {current_date.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
+                safe_print(f"⚠️ Unexpected format for period {current_date.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
                 # Continue to next period
                 if current_date.month + 6 <= 12:
                     current_date = current_date.replace(month=current_date.month + 6)
@@ -348,7 +349,7 @@ class AemetWeatherSource(BaseWeatherSource):
                     all_daily_records.append(record)
 
                 except (ValueError, TypeError, KeyError) as e:
-                    print(f"⚠️ Error processing daily record: {e}")
+                    safe_print(f"⚠️ Error processing daily record: {e}")
                     continue
 
             # Move to next 6-month period
@@ -360,7 +361,7 @@ class AemetWeatherSource(BaseWeatherSource):
         if not all_daily_records:
             raise ValueError(f"No data obtained for station {station_id} ({start_year}-{end_year})")
 
-        print(f"✅ Obtained {len(all_daily_records)} daily records from AEMET")
+        safe_print(f"✅ Obtained {len(all_daily_records)} daily records from AEMET")
 
         return WeatherData(daily_records=all_daily_records)
 
@@ -402,9 +403,9 @@ class AemetWeatherSource(BaseWeatherSource):
                 station_id=nearest_station.id_station
             )
         except Exception as e:
-            print(f"❌ Error getting meteorological data: {e}")
+            safe_print(f"❌ Error getting meteorological data: {e}")
             raise ValueError(f"Could not obtain meteorological data for station {nearest_station.name}")
         
-        print(f"✅ Data successfully obtained for {nearest_station.name} ({start_year}-{end_year})")
+        safe_print(f"✅ Data successfully obtained for {nearest_station.name} ({start_year}-{end_year})")
         
         return (nearest_station, weather_data)

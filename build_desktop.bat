@@ -144,6 +144,7 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import random ^
     --hidden-import sys ^
     --onedir ^
+    --noconsole ^
     --noconfirm
 
 echo.

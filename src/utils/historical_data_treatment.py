@@ -3,6 +3,7 @@ from typing import List
 
 from data_sources.base_source import DailyWeatherRecord, WeatherData
 from utils.data_parsing import parse_float, parse_int
+from utils.system_utils import safe_print
 
 # Functions for filling missing days and interpolating/extrapolating values in historical weather data.
 def fill_missing_days(daily_records: List[dict]) -> List[dict]:
@@ -259,7 +260,7 @@ def interpolate_missing_values_in_period(daily_records: List[dict]) -> None:
             never_present.add(var)
 
     if never_present:
-        print(f"⚠️ Variables without data in period (not interpolating): {', '.join(sorted(never_present))}")
+        safe_print(f"⚠️ Variables without data in period (not interpolating): {', '.join(sorted(never_present))}")
 
     for var, actual_key in actual_keys_used.items():
         if var in never_present:
@@ -419,7 +420,7 @@ def apply_historical_treatment_if_needed(weather_data: WeatherData) -> WeatherDa
     if not _needs_historical_treatment(weather_data.daily_records):
         return weather_data
 
-    print("ℹ️ Applying historical interpolation/extrapolation")
+    safe_print("ℹ️ Applying historical interpolation/extrapolation")
     treatment_records = _convert_weather_data_to_treatment_records(weather_data)
     treatment_records = fill_missing_days(treatment_records)
     interpolate_missing_values_in_period(treatment_records)

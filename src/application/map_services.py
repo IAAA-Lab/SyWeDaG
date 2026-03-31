@@ -10,7 +10,7 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from shapely.geometry import Point, shape
 
-from utils.system_utils import get_resource_path
+from utils.system_utils import get_resource_path, safe_print
 
 
 @lru_cache(maxsize=1)
@@ -39,10 +39,10 @@ def load_geojson_files() -> dict:
                         with open(full_path, "r", encoding="utf-8") as file:
                             geojson_cache[source_name] = json.load(file)
                     except Exception as error:
-                        print(f"⚠️ Error loading {geojson_path}: {error}")
+                        safe_print(f"⚠️ Error loading {geojson_path}: {error}")
 
     except Exception as error:
-        print(f"⚠️ Error in load_geojson_files: {error}")
+        safe_print(f"⚠️ Error in load_geojson_files: {error}")
 
     return geojson_cache
 
@@ -63,7 +63,7 @@ def geocode_location(search_query: str) -> Optional[tuple[float, float]]:
         if location:
             return (location.latitude, location.longitude)
     except (GeocoderTimedOut, GeocoderServiceError) as error:
-        print(f"⚠️ Geocoding error: {error}")
+        safe_print(f"⚠️ Geocoding error: {error}")
     return None
 
 
@@ -97,6 +97,6 @@ def get_data_source_for_point(lat: float, lon: float, config: dict) -> Optional[
                             return source
 
             except Exception as error:
-                print(f"⚠️ Error checking GeoJSON {source_name}: {error}")
+                safe_print(f"⚠️ Error checking GeoJSON {source_name}: {error}")
 
     return None

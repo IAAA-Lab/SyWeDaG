@@ -2,6 +2,40 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+
+def safe_print(*args, **kwargs) -> None:
+    """
+    Print safely when running windowed executables where stdout/stderr may be None.
+    """
+    try:
+        output_stream = kwargs.pop("file", None)
+        if output_stream is None:
+            output_stream = sys.stdout if sys.stdout is not None else sys.stderr
+
+        if output_stream is None:
+            return
+
+        try:
+            print(*args, file=output_stream, **kwargs)
+        except UnicodeEncodeError:
+            # Fallback for Windows charmap consoles that cannot encode emoji/symbols.
+            sep = kwargs.get("sep", " ")
+            end = kwargs.get("end", "\n")
+            flush = kwargs.get("flush", False)
+
+            text = sep.join(str(arg) for arg in args) + end
+            encoding = getattr(output_stream, "encoding", None) or "utf-8"
+
+            safe_text = text.encode(encoding, errors="replace").decode(
+                encoding, errors="replace"
+            )
+            output_stream.write(safe_text)
+            if flush:
+                output_stream.flush()
+    except Exception:
+        # Never let logging/printing break application flow.
+        return
+
 def get_resource_path(relative_path: str | Path) -> Path:
     """
     Get absolute path to a project resource, compatible with dev and PyInstaller.

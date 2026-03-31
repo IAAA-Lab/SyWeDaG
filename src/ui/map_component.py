@@ -12,6 +12,7 @@ from application.map_services import (
     get_data_source_for_point,
 )
 from ui.styles.map_styles import apply_map_styles
+from utils.system_utils import safe_print
 
 
 def _selected_source_missing_api_key(config):
@@ -93,13 +94,13 @@ def add_country_polygons(m, config):
                         tooltip=tooltip_text
                     ).add_to(m)
                     
-                    print(f"✅ Polygon loaded for {source_name}")
+                    safe_print(f"✅ Polygon loaded for {source_name}")
                 
                 except Exception as e:
-                    print(f"⚠️ Error loading polygon for {source_name}: {e}")
+                    safe_print(f"⚠️ Error loading polygon for {source_name}: {e}")
     
     except Exception as e:
-        print(f"⚠️ Error adding country polygons: {e}")
+        safe_print(f"⚠️ Error adding country polygons: {e}")
 
 def create_map(config, center=None, zoom=None):
     """
