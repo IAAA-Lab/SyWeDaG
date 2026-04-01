@@ -28,7 +28,7 @@ echo.
 
 py -3.12 --version >nul 2>&1
 if errorlevel 1 (
-        echo ERROR: Python 3.12 no esta instalado o no esta disponible con el launcher ^(py -3.12^).
+        echo ERROR: Python 3.12 is not installed or is not available with launcher ^(py -3.12^).
         pause
         exit /b 1
 )
@@ -85,10 +85,16 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import data_sources.source_selector ^
     --hidden-import data_sources.__init__ ^
     --hidden-import generators ^
-    --hidden-import generators.k_neighbors ^
-    --hidden-import generators.xgboost_model ^
+    --hidden-import generators.daily_correctors ^
+    --hidden-import generators.daily_correctors.k_neighbors ^
+    --hidden-import generators.daily_correctors.xgboost_model ^
+    --hidden-import generators.monthly_adjustments ^
+    --hidden-import generators.monthly_adjustments.temperature_adjuster ^
+    --hidden-import generators.monthly_adjustments.precipitation_adjuster ^
+    --hidden-import generators.hourly_generation ^
+    --hidden-import generators.hourly_generation.hourly_interpolator ^
     --hidden-import generators.synthetic_generator ^
-    --hidden-import generators.mbc_correction ^
+    --hidden-import generators.daily_correctors.mbc_correction ^
     --hidden-import application ^
     --hidden-import application.map_services ^
     --hidden-import application.config_services ^

@@ -5,13 +5,11 @@ Application services for map-related business logic.
 from functools import lru_cache
 import json
 from typing import Optional
-
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from shapely.geometry import Point, shape
 
 from utils.system_utils import get_resource_path, safe_print
-
 
 @lru_cache(maxsize=1)
 def load_geojson_files() -> dict:

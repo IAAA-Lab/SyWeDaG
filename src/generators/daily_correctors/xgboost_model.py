@@ -45,7 +45,7 @@ from typing import List, Dict, Optional
 from xgboost import XGBRegressor
 from sklearn.multioutput import MultiOutputRegressor
 
-from generators.k_neighbors import KNeighborsCorrector
+from generators.daily_correctors.k_neighbors import KNeighborsCorrector
 from utils.system_utils import safe_print
 
 
