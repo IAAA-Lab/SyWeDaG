@@ -6,7 +6,7 @@ from dataclasses import dataclass
 class WeatherStation:
     """Represents a weather station"""
     source: str             # Source name (e.g., "AEMET")
-    id_station: int         # Unique station ID (source-specific)
+    id_station: str         # Unique station ID (source-specific)
     name: str               # Station name (e.g., "Madrid-Barajas")
     region: Optional[str]   # Region or province (e.g., "Madrid")
     latitude: float         # Latitude of the station (e.g., 39.735)
@@ -84,7 +84,7 @@ class BaseWeatherSource(ABC):
         end_year: int,
         latitude: Optional[float] = None,
         longitude: Optional[float] = None,
-        station_id: Optional[int] = None
+        station_id: Optional[str] = None
     ) -> WeatherData:
         """
         Get historical weather data for a period and location.

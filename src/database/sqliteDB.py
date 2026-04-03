@@ -26,7 +26,7 @@ def createTables():
     c.execute('''
         CREATE TABLE IF NOT EXISTS WeatherStations (
             source TEXT NOT NULL,
-            id_station INTEGER NOT NULL,
+            id_station TEXT NOT NULL,
             name TEXT NOT NULL,
             region TEXT,
             latitude REAL NOT NULL,
@@ -44,7 +44,7 @@ def createTables():
         CREATE TABLE IF NOT EXISTS HistoricalDataDaily (
             date TEXT NOT NULL,
             source TEXT NOT NULL,
-            id_station INTEGER NOT NULL,
+            id_station TEXT NOT NULL,
             
             temperature_min REAL,
             temperature_max REAL,
@@ -97,7 +97,7 @@ def createTables():
         CREATE TABLE IF NOT EXISTS Used_in (
             date TEXT NOT NULL,
             source TEXT NOT NULL,
-            id_station INTEGER NOT NULL,
+            id_station TEXT NOT NULL,
             idGenerationJob INTEGER NOT NULL,
             
             PRIMARY KEY (date, source, id_station, idGenerationJob),
@@ -461,7 +461,7 @@ def insert_generated_hourly_data(generated_hourly):
 # QUERY FUNCTIONS
 # ============================================================================
 
-def get_historical_daily_data(source: str, id_station, start_date: str, end_date: str):
+def get_historical_daily_data(source: str, id_station: str, start_date: str, end_date: str):
     """
     Retrieve daily historical data for a station between two dates.
     

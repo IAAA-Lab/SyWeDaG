@@ -46,7 +46,7 @@ class SyntheticWeatherGenerator:
     and generates interpolated hourly data.
     """
     
-    def __init__(self, source: str, id_station, historical_start: str, 
+    def __init__(self, source: str, id_station: str, historical_start: str, 
                  historical_end: str, generation_start: str, generation_end: str):
         """
         Initialize the generator.

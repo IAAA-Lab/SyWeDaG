@@ -203,7 +203,7 @@ class AemetWeatherSource(BaseWeatherSource):
         end_year: int,
         latitude: Optional[float] = None,
         longitude: Optional[float] = None,
-        station_id: Optional[int] = None
+        station_id: Optional[str] = None
     ) -> WeatherData:
         """
         Get historical weather data for a period and location.
@@ -226,9 +226,6 @@ class AemetWeatherSource(BaseWeatherSource):
             raise ValueError(
                 "Must provide station_id"
             )
-
-        # Convert station_id to string if necessary (AEMET uses strings)
-        station_id = str(station_id)
 
         all_daily_records = []
 
