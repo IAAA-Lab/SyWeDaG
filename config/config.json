@@ -14,7 +14,7 @@
       "geojson_path": "assets/geocountries/geoBoundaries-ESP-ADM0_simplified.geojson",
       "api_url": "https://opendata.aemet.es/opendata/api",
       "key_url": "https://opendata.aemet.es/centrodedescargas/altaUsuario",
-      "api_key": "",
+      "api_key_env_var": "AEMET_API_KEY",
       "last_data_year": 1920
     }
   ]

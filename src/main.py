@@ -5,7 +5,12 @@ Main entry point for the Streamlit application
 
 import streamlit as st
 import json
+from dotenv import load_dotenv
 from utils.system_utils import get_resource_path
+
+# Load environment variables from .env file
+env_path = get_resource_path(".env")
+load_dotenv(dotenv_path=str(env_path))
 
 # Page configuration
 st.set_page_config(

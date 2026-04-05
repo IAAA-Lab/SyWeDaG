@@ -3,28 +3,39 @@ Settings page component for MeteoSynthetic
 Allows configuring API keys for data sources
 """
 
-from pathlib import Path
 import json
+import os
 import streamlit as st
+from dotenv import load_dotenv, set_key
 
 from ui.styles.settings_styles import apply_settings_styles
 from utils.system_utils import get_resource_path
 from database.sqliteDB import clear_all_data
 
 
-def _get_config_file_path() -> Path:
-    """Resolve config file path for save operations."""
-    return get_resource_path("config/config.json")
-
-
-def _save_config(updated_config: dict) -> tuple[bool, str]:
-    """Save config dictionary to config JSON file."""
-    config_path = _get_config_file_path()
-
+def _save_api_keys_to_env(config: dict, api_keys: dict) -> tuple[bool, str]:
+    """Save API keys to .env file based on config specifications."""
+    env_path = get_resource_path(".env")
+    
     try:
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(config_path, "w", encoding="utf-8") as config_file:
-            json.dump(updated_config, config_file, indent=2, ensure_ascii=False)
+        # Create .env if it doesn't exist
+        if not env_path.exists():
+            env_path.parent.mkdir(parents=True, exist_ok=True)
+            env_path.touch()
+        
+        # Get environment variable names from config
+        for source in config.get("data_sources", []):
+            source_name = source.get("name")
+            
+            # Only save if config specifies an env var and user provided a key
+            if "api_key_env_var" in source and source_name in api_keys:
+                env_var_name = source.get("api_key_env_var")
+                # Use set_key to update or add the key
+                set_key(str(env_path), env_var_name, api_keys[source_name])
+        
+        # Reload environment variables
+        load_dotenv(dotenv_path=str(env_path), override=True)
+        
         return True, "Settings saved successfully"
     except Exception as error:
         return False, f"Error saving settings: {error}"
@@ -46,7 +57,7 @@ def render_settings_page(config: dict):
     data_sources = config.get("data_sources", [])
     sources_with_keys = [
         source for source in data_sources
-        if "api_key" in source or "key_url" in source
+        if "api_key_env_var" in source or "key_url" in source
     ]
 
     if not sources_with_keys:
@@ -65,15 +76,19 @@ def render_settings_page(config: dict):
             #st.markdown("---")
             st.markdown(f"#### {source_label}")
 
-            current_api_key = source.get("api_key", "")
-            api_key_input = st.text_input(
-                f"{source_name} API Key",
-                value=current_api_key,
-                type="password",
-                key=f"settings_api_key_{source_name}",
-                help="Enter the API key used to access this data source."
-            )
-            updated_api_keys[source_name] = api_key_input.strip()
+            # Get current API key from environment variable
+            env_var_name = source.get("api_key_env_var")
+            if env_var_name:
+                current_api_key = os.getenv(env_var_name, "")
+                
+                api_key_input = st.text_input(
+                    f"{source_name} API Key",
+                    value=current_api_key,
+                    type="password",
+                    key=f"settings_api_key_{source_name}",
+                    help="Enter the API key used to access this data source. Stored securely in .env"
+                )
+                updated_api_keys[source_name] = api_key_input.strip()
 
             key_url = source.get("key_url")
             if key_url:
@@ -86,23 +101,9 @@ def render_settings_page(config: dict):
         save_clicked = st.form_submit_button("SAVE SETTINGS")
 
     if save_clicked:
-        updated_config = dict(config)
-        updated_data_sources = []
-
-        for source in data_sources:
-            source_copy = dict(source)
-            source_name = source_copy.get("name")
-
-            if source_name in updated_api_keys:
-                source_copy["api_key"] = updated_api_keys[source_name]
-
-            updated_data_sources.append(source_copy)
-
-        updated_config["data_sources"] = updated_data_sources
-
-        saved_ok, message = _save_config(updated_config)
+        # Save API keys to .env instead of config.json
+        saved_ok, message = _save_api_keys_to_env(config, updated_api_keys)
         if saved_ok:
-            st.session_state.config = updated_config
             st.success(message)
         else:
             st.error(message)

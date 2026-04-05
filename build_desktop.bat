@@ -57,6 +57,8 @@ streamlit-desktop-app build src/main.py ^
     --copy-metadata shapely ^
     --copy-metadata scikit-learn ^
     --copy-metadata xgboost ^
+    --copy-metadata python-dotenv ^
+    --collect-all python-dotenv ^
     --add-data "config;config" ^
     --add-data "assets;assets" ^
     --add-data "assets/geocountries;assets/geocountries" ^
@@ -70,6 +72,7 @@ streamlit-desktop-app build src/main.py ^
     --add-data "src/utils;utils" ^
     --hidden-import database.sqliteDB ^
     --hidden-import sqlite3 ^
+    --hidden-import dotenv ^
     --hidden-import ui.map_component ^
     --hidden-import ui.config_page ^
     --hidden-import ui.results_page ^

@@ -11,4 +11,5 @@ scikit-learn==1.8.0
 xgboost==3.2.0
 xarray==2026.2.0
 xclim==0.55.0
+python-dotenv==1.0.1
 streamlit-desktop-app==0.3.4; python_version >= "3.9" and python_version < "3.13"

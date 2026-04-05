@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+import os
 from typing import Optional, List, Dict
 from datetime import date, timedelta
 
@@ -21,11 +22,14 @@ class AemetWeatherSource(BaseWeatherSource):
         Initialize the AEMET data source.
         
         Args:
-            config: Dictionary with configuration (must contain api_url and api_key)
+            config: Dictionary with configuration (must contain api_url and api_key_env_var)
+                   api_key is read from environment variable specified in config
         """
         super().__init__(config)
         self.api_url = config.get('api_url', 'https://opendata.aemet.es/opendata/api')
-        self.api_key = config.get('api_key')
+        # Get API key from environment variable specified in config
+        env_var_name = config.get('api_key_env_var', 'AEMET_API_KEY')
+        self.api_key = os.getenv(env_var_name, '')
 
     def _fetch_from_aemet_api(self, url: str) -> Optional[dict]:
         """

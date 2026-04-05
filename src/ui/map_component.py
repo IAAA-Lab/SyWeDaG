@@ -3,6 +3,7 @@ Map component for location selection
 Includes search functionality and zoom controls
 """
 
+import os
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
@@ -18,6 +19,7 @@ from utils.system_utils import safe_print
 def _selected_source_missing_api_key(config):
     """
     Check whether currently selected data source requires an API key but has it empty.
+    Checks environment variables based on config specification.
 
     Args:
         config (dict): Configuration dictionary
@@ -32,8 +34,16 @@ def _selected_source_missing_api_key(config):
     for source in config.get("data_sources", []):
         source_name = source.get("name")
         if source_name == selected_source_name:
-            if "api_key" in source and not str(source.get("api_key", "")).strip():
-                return True, source_name
+            # Check if source requires an API key
+            env_var_name = source.get("api_key_env_var")
+            if env_var_name:
+                # API key is required - check if it's set in environment
+                env_api_key = os.getenv(env_var_name)
+                
+                if not env_api_key or not str(env_api_key).strip():
+                    # API key is required but missing
+                    return True, source_name
+            
             return False, source_name
 
     return False, None
