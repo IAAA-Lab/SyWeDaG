@@ -1,6 +1,11 @@
 from typing import Optional
 
+import numpy as np
+import pandas as pd
 
+################################################
+## Functions to parse and convert various data formats, especially for AEMET weather data.
+#################################################
 def parse_coordinates(coord_str: str) -> Optional[float]:
     """
     Parse Packed DMS format coordinates (e.g. '413938N' or '010015W') to decimal.
@@ -164,3 +169,85 @@ def parse_int(value) -> Optional[int]:
         return int(float(value_str))
     except (ValueError, TypeError):
         return None
+
+################################################
+## Functions to compute statistics from pandas Series, especially from Open Meteo data.
+#################################################
+def to_float_or_none(value) -> Optional[float]:
+    """Convert value to float, returning None when value is empty/invalid/NaN."""
+    if value is None:
+        return None
+    try:
+        value = float(value)
+        if np.isnan(value):
+            return None
+        return value
+    except (TypeError, ValueError):
+        return None
+
+
+def series_min(series: pd.Series) -> Optional[float]:
+    value = to_float_or_none(series.min(skipna=True))
+    return None if value is None else float(round(value, 2))
+
+
+def series_max(series: pd.Series) -> Optional[float]:
+    value = to_float_or_none(series.max(skipna=True))
+    return None if value is None else float(round(value, 2))
+
+
+def series_mean(series: pd.Series) -> Optional[float]:
+    value = to_float_or_none(series.mean(skipna=True))
+    return None if value is None else float(round(value, 2))
+
+
+def series_min_int(series: pd.Series) -> Optional[int]:
+    value = to_float_or_none(series.min(skipna=True))
+    return None if value is None else int(round(value))
+
+
+def series_max_int(series: pd.Series) -> Optional[int]:
+    value = to_float_or_none(series.max(skipna=True))
+    return None if value is None else int(round(value))
+
+
+def series_mean_int(series: pd.Series) -> Optional[int]:
+    value = to_float_or_none(series.mean(skipna=True))
+    return None if value is None else int(round(value))
+
+
+def series_hour_of_min(day_hourly: pd.DataFrame, column: str) -> Optional[str]:
+    if day_hourly.empty:
+        return None
+    series = pd.to_numeric(day_hourly[column], errors="coerce")
+    if series.notna().sum() == 0:
+        return None
+    idx = series.idxmin()
+    timestamp = day_hourly.loc[idx, "datetime"]
+    return pd.to_datetime(timestamp).strftime("%H:%M")
+
+
+def series_hour_of_max(day_hourly: pd.DataFrame, column: str) -> Optional[str]:
+    if day_hourly.empty:
+        return None
+    series = pd.to_numeric(day_hourly[column], errors="coerce")
+    if series.notna().sum() == 0:
+        return None
+    idx = series.idxmax()
+    timestamp = day_hourly.loc[idx, "datetime"]
+    return pd.to_datetime(timestamp).strftime("%H:%M")
+
+
+def degrees_to_cardinal(direction_degrees) -> Optional[str]:
+    """Convert direction in degrees (0-360) to cardinal direction."""
+    try:
+        value = float(direction_degrees)
+        if np.isnan(value):
+            return None
+    except (TypeError, ValueError):
+        return None
+
+    value = value % 360
+    directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    index = int((value + 22.5) // 45) % 8
+    return directions[index]

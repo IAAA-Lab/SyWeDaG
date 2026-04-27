@@ -1,4 +1,5 @@
 from data_sources.aemet_source import AemetWeatherSource
+from data_sources.open_meteo_source import OpenMeteoWeatherSource
 
 
 def get_data_source_instance(source_name: str, config: dict):
@@ -22,5 +23,7 @@ def get_data_source_instance(source_name: str, config: dict):
 
     if source_name == 'AEMET':
         return AemetWeatherSource(source_config)
+    if source_name == 'Open-Meteo':
+        return OpenMeteoWeatherSource(source_config)
 
     return None

@@ -10,7 +10,7 @@ from streamlit_folium import st_folium
 from application.map_services import (
     load_geojson_files,
     geocode_location,
-    get_data_source_for_point,
+    get_data_sources_for_point,
 )
 from ui.styles.map_styles import apply_map_styles
 from utils.system_utils import safe_print
@@ -67,6 +67,34 @@ def show_api_key_required_modal(source_name):
         if st.button("CLOSE", key="close_api_modal", use_container_width=True):
             st.rerun()
 
+
+@st.dialog("Select Data Source", width="large")
+def show_data_source_selection_modal(candidate_sources):
+    """Show modal to select a data source when multiple match the clicked point."""
+    st.markdown("More than one data source is available for this location. Select one:")
+
+    source_names = [source.get("name", "Unknown") for source in candidate_sources]
+    selected_name = st.radio(
+        "Data source",
+        options=source_names,
+        key="selected_data_source_radio_modal",
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("CONFIRM", key="confirm_data_source_modal", use_container_width=True):
+            st.session_state.selected_data_source = selected_name
+            st.session_state.source_selection_open = False
+            st.session_state.source_selection_candidates = []
+            st.rerun()
+
+    with col2:
+        if st.button("CANCEL", key="cancel_data_source_modal", use_container_width=True):
+            st.session_state.selected_data_source = None
+            st.session_state.source_selection_open = False
+            st.session_state.source_selection_candidates = []
+            st.rerun()
+
 def add_country_polygons(m, config):
     """
     Add semitransparent country polygons to the map from local GeoJSON files
@@ -80,34 +108,48 @@ def add_country_polygons(m, config):
         # Load cached GeoJSON files
         geojson_cache = load_geojson_files()
         
-        # Add each data source country polygon
+        # Group by GeoJSON path to avoid drawing the same polygon multiple times.
+        polygons_by_path = {}
         for source in config.get("data_sources", []):
             source_name = source.get("name", source.get("country", "Unknown"))
             country_name = source.get("country", "Unknown")
-            color = source.get("color", "#3388ff")  # Default blue if not specified
-            
-            if source_name and source_name in geojson_cache:
-                geojson_data = geojson_cache[source_name]
-                
-                try:
-                    # Add to map with custom style and tooltip
-                    tooltip_text = f"{country_name} ({source_name})"
-                    folium.GeoJson(
-                        geojson_data,
-                        name=source_name,
-                        style_function=lambda x, c=color: {
-                            'fillColor': c,
-                            'color': '#333333',
-                            'weight': 2,
-                            'fillOpacity': 0.4
-                        },
-                        tooltip=tooltip_text
-                    ).add_to(m)
-                    
-                    safe_print(f"✅ Polygon loaded for {source_name}")
-                
-                except Exception as e:
-                    safe_print(f"⚠️ Error loading polygon for {source_name}: {e}")
+            color = source.get("color", "#3388ff")
+            geojson_path = source.get("geojson_path") or source_name
+
+            if not source_name or source_name not in geojson_cache:
+                continue
+
+            if geojson_path not in polygons_by_path:
+                polygons_by_path[geojson_path] = {
+                    "country": country_name,
+                    "color": color,
+                    "sources": [source_name],
+                    "geojson": geojson_cache[source_name],
+                }
+            else:
+                polygons_by_path[geojson_path]["sources"].append(source_name)
+
+        for polygon_info in polygons_by_path.values():
+            try:
+                tooltip_text = (
+                    f"{polygon_info['country']} "
+                    f"({', '.join(polygon_info['sources'])})"
+                )
+                folium.GeoJson(
+                    polygon_info["geojson"],
+                    name=tooltip_text,
+                    style_function=lambda x, c=polygon_info["color"]: {
+                        'fillColor': c,
+                        'color': '#333333',
+                        'weight': 2,
+                        'fillOpacity': 0.4
+                    },
+                    tooltip=tooltip_text
+                ).add_to(m)
+
+                safe_print(f"✅ Polygon loaded for {', '.join(polygon_info['sources'])}")
+            except Exception as e:
+                safe_print(f"⚠️ Error loading polygon: {e}")
     
     except Exception as e:
         safe_print(f"⚠️ Error adding country polygons: {e}")
@@ -155,6 +197,11 @@ def render_map(config):
     
     # Apply map-specific styles
     apply_map_styles()
+
+    if st.session_state.get("source_selection_open", False):
+        candidates = st.session_state.get("source_selection_candidates", [])
+        if candidates:
+            show_data_source_selection_modal(candidates)
     
     # Search input
     search_query = st.text_input(
@@ -234,13 +281,22 @@ def render_map(config):
             if map_data.get("zoom"):
                 st.session_state.map_zoom = map_data["zoom"]
             
-            # Check which data source covers this point
+            # Check which data source(s) cover this point
             try:
-                data_source = get_data_source_for_point(lat, lon, config)
-                if data_source:
-                    st.session_state.selected_data_source = data_source["name"]
+                candidate_sources = get_data_sources_for_point(lat, lon, config)
+
+                if len(candidate_sources) == 1:
+                    st.session_state.selected_data_source = candidate_sources[0]["name"]
+                    st.session_state.source_selection_open = False
+                    st.session_state.source_selection_candidates = []
+                elif len(candidate_sources) > 1:
+                    st.session_state.selected_data_source = None
+                    st.session_state.source_selection_open = True
+                    st.session_state.source_selection_candidates = candidate_sources
                 else:
                     st.session_state.selected_data_source = None
+                    st.session_state.source_selection_open = False
+                    st.session_state.source_selection_candidates = []
             except ImportError:
                 pass
             

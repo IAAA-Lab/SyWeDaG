@@ -17,6 +17,7 @@ from typing import List, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 from utils.system_utils import safe_print
+import random
 
 from database.sqliteDB import (
     get_historical_daily_data, 
@@ -131,35 +132,29 @@ class SyntheticWeatherGenerator:
             if month_day_key in records_by_month_day:
                 available_years = sorted(records_by_month_day[month_day_key].keys())
                 if available_years:
-                    # TODO dejar aleatorio
-                    #year_index = random.randint(0, len(available_years) - 1)
-                    # CYCLE: use modulo to iterate available years deterministically
-                    # Without this (with random.randint()), data was distributed randomly,
-                    # now it cycles by historical year to simplify debugging
-                    year_index = (occurrence_count - 1) % len(available_years)
-                    selected_year = available_years[year_index]
-                    source_record = records_by_month_day[month_day_key][selected_year]
+                    year_index = random.randint(0, len(available_years) - 1)
+                    # cycle by historical year to simplify debugging
+                    #year_index = (occurrence_count - 1) % len(available_years)
+                    #selected_year = available_years[year_index]
+                    #source_record = records_by_month_day[month_day_key][selected_year]
             
             # Special case: February 29
             if source_record is None and current_date.month == 2 and current_date.day == 29:
                 alt_key = "02-28"
                 if alt_key in records_by_month_day:
                     available_years = sorted(records_by_month_day[alt_key].keys())
-                    # TODO dejar aleatorio
-                    #year_index = random.randint(0, len(available_years) - 1)
-                    # CYCLE: use modulo to iterate available years deterministically
-                    # Without this (with random.randint()), data was distributed randomly,
-                    # now it cycles by historical year to simplify debugging
-                    year_index = (occurrence_count - 1) % len(available_years)
-                    selected_year = available_years[year_index]
-                    source_record = records_by_month_day[alt_key][selected_year]
+                    year_index = random.randint(0, len(available_years) - 1)
+                    # cycle by historical year to simplify debugging
+                    #year_index = (occurrence_count - 1) % len(available_years)
+                    #selected_year = available_years[year_index]
+                    #source_record = records_by_month_day[alt_key][selected_year]
             
             # Fallback: cycle over all historical records
             if source_record is None:
-                # TODO dejar aleatorio
-                #idx = random.randint(0, len(self.historical_data) - 1)
-                # CYCLE: instead of random.randint(), use modulo for deterministic cycling
-                idx = (occurrence_count - 1) % len(self.historical_data)
+                idx = random.randint(0, len(self.historical_data) - 1)
+                # cycle by historical year to simplify debugging
+                #idx = (occurrence_count - 1) % len(self.historical_data)
+                
                 source_record = self.historical_data[idx]
             
             # Copy record with new date

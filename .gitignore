@@ -23,6 +23,7 @@ dist/
 *.log
 *.tmp
 *.bak
+.cache.sqlite
 
 # Python virtual environments
 .venv312/

@@ -44,6 +44,9 @@ streamlit-desktop-app build src/main.py ^
     --collect-all folium ^
     --collect-all numpy ^
     --collect-all requests ^
+    --collect-all openmeteo_requests ^
+    --collect-all requests_cache ^
+    --collect-all retry_requests ^
     --collect-all geopy ^
     --collect-all shapely ^
     --collect-all sklearn ^
@@ -53,6 +56,9 @@ streamlit-desktop-app build src/main.py ^
     --copy-metadata folium ^
     --copy-metadata numpy ^
     --copy-metadata requests ^
+    --copy-metadata openmeteo-requests ^
+    --copy-metadata requests-cache ^
+    --copy-metadata retry-requests ^
     --copy-metadata geopy ^
     --copy-metadata shapely ^
     --copy-metadata scikit-learn ^
@@ -84,6 +90,7 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import ui.styles.settings_styles ^
     --hidden-import data_sources ^
     --hidden-import data_sources.aemet_source ^
+    --hidden-import data_sources.open_meteo_source ^
     --hidden-import data_sources.base_source ^
     --hidden-import data_sources.source_selector ^
     --hidden-import data_sources.__init__ ^
@@ -134,6 +141,9 @@ streamlit-desktop-app build src/main.py ^
     --hidden-import requests ^
     --hidden-import requests.adapters ^
     --hidden-import requests.structures ^
+    --hidden-import openmeteo_requests ^
+    --hidden-import requests_cache ^
+    --hidden-import retry_requests ^
     --hidden-import urllib3 ^
     --hidden-import urllib3.util ^
     --hidden-import certifi ^
