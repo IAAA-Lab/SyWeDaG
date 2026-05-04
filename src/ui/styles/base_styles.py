@@ -8,11 +8,11 @@ def apply_base_styles():
     """Apply base styles (header, common elements)"""
     st.markdown("""
     <style>
-    /* Remove all scrolling and borders */
+    /* Base page layout: allow vertical scrolling */
     html, body {
         margin: 0 !important;
         padding: 0 !important;
-        overflow: hidden !important;
+        overflow: auto !important;
         height: 100vh !important;
         width: 100vw !important;
     }
@@ -29,7 +29,7 @@ def apply_base_styles():
         background-color: transparent;
         padding: 0 !important;
         margin: 0 !important;
-        overflow: hidden !important;
+        overflow: auto !important;
         height: 100vh !important;
     }
     
@@ -37,18 +37,18 @@ def apply_base_styles():
         padding: 0 !important;
         margin: 0 !important;
         max-width: 100% !important;
-        overflow: hidden !important;
+        overflow: auto !important;
     }
     
     .stApp {
         margin: 0 !important;
         padding: 0 !important;
-        overflow: hidden !important;
+        overflow: auto !important;
     }
     
     [data-testid="stAppViewContainer"] {
         padding: 0 !important;
-        overflow: hidden !important;
+        overflow: auto !important;
     }
     
     /* Blue Header */

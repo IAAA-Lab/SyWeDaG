@@ -25,6 +25,7 @@ def apply_results_styles():
         padding-top: 0 !important;
         padding-left: 1% !important;
         padding-right: 1% !important;
+        padding-bottom: 6% !important;
         overflow-y: auto !important;
     }
     
