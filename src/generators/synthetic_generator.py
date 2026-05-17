@@ -105,56 +105,66 @@ class SyntheticWeatherGenerator:
         gen_start = datetime.strptime(self.generation_start, '%Y-%m-%d')
         gen_end = datetime.strptime(self.generation_end, '%Y-%m-%d')
         
-        # Index historical records by month-day and year
+        # Index historical records by month-day and year.
+        # We'll create a single random permutation of historical years
+        # and use that order cyclically per GENERATED YEAR (global).
         records_by_month_day = {}
+        historical_years_set = set()
         for record in self.historical_data:
             record_date = datetime.strptime(record['date'], '%Y-%m-%d')
             month_day_key = f"{record_date.month:02d}-{record_date.day:02d}"
             year = record_date.year
-            
+            historical_years_set.add(year)
+
             if month_day_key not in records_by_month_day:
-                records_by_month_day[month_day_key] = {}
-            records_by_month_day[month_day_key][year] = record
-        
+                records_by_month_day[month_day_key] = {'map': {}}
+            # keep only one record per year/month-day (latest encountered)
+            if year not in records_by_month_day[month_day_key]['map']:
+                records_by_month_day[month_day_key]['map'][year] = record
+
+        # Single random permutation of all available historical years
+        historical_years = sorted(list(historical_years_set))
+        random.shuffle(historical_years)
+
         current_date = gen_start
-        month_day_occurrence = {}
-        
+        # shuffled list of all historical indices for fallback (cycled)
+        shuffled_all_indices = list(range(len(self.historical_data)))
+        random.shuffle(shuffled_all_indices)
+        fallback_counter = 0
+        last_reported_generated_year = None
+
         while current_date <= gen_end:
             month_day_key = f"{current_date.month:02d}-{current_date.day:02d}"
-            
-            if month_day_key not in month_day_occurrence:
-                month_day_occurrence[month_day_key] = 0
-            month_day_occurrence[month_day_key] += 1
-            occurrence_count = month_day_occurrence[month_day_key]
-            
+
             source_record = None
+
+            # Determine which historical year to use for the whole generated YEAR
+            year_offset = current_date.year - gen_start.year
+            selected_year = None
+            if historical_years:
+                selected_year = historical_years[year_offset % len(historical_years)]
+
+            # Report mapping once per generated year so user can inspect order
+            if last_reported_generated_year != current_date.year:
+                safe_print(f"🔁 Generated year {current_date.year} -> historical year {selected_year}")
+                last_reported_generated_year = current_date.year
+
+            if month_day_key in records_by_month_day and selected_year is not None:
+                info = records_by_month_day[month_day_key]
+                source_record = info['map'].get(selected_year)
             
-            if month_day_key in records_by_month_day:
-                available_years = sorted(records_by_month_day[month_day_key].keys())
-                if available_years:
-                    year_index = random.randint(0, len(available_years) - 1)
-                    # cycle by historical year to simplify debugging
-                    #year_index = (occurrence_count - 1) % len(available_years)
-                    #selected_year = available_years[year_index]
-                    #source_record = records_by_month_day[month_day_key][selected_year]
-            
-            # Special case: February 29
+            # Special case: February 29 -> try Feb 28 from the same selected historical year
             if source_record is None and current_date.month == 2 and current_date.day == 29:
                 alt_key = "02-28"
-                if alt_key in records_by_month_day:
-                    available_years = sorted(records_by_month_day[alt_key].keys())
-                    year_index = random.randint(0, len(available_years) - 1)
-                    # cycle by historical year to simplify debugging
-                    #year_index = (occurrence_count - 1) % len(available_years)
-                    #selected_year = available_years[year_index]
-                    #source_record = records_by_month_day[alt_key][selected_year]
+                if alt_key in records_by_month_day and selected_year is not None:
+                    info = records_by_month_day[alt_key]
+                    source_record = info['map'].get(selected_year)
             
             # Fallback: cycle over all historical records
             if source_record is None:
-                idx = random.randint(0, len(self.historical_data) - 1)
-                # cycle by historical year to simplify debugging
-                #idx = (occurrence_count - 1) % len(self.historical_data)
-                
+                # fallback: cycle over a single shuffled permutation of all historical
+                idx = shuffled_all_indices[fallback_counter % len(shuffled_all_indices)]
+                fallback_counter += 1
                 source_record = self.historical_data[idx]
             
             # Copy record with new date
