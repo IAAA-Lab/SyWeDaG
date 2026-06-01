@@ -31,11 +31,11 @@ from generators.daily_correctors.xgboost_model import XGBoostWeatherModel
 from generators.monthly_adjustments.temperature_adjuster import adjust_temperatures_for_month
 from generators.monthly_adjustments.precipitation_adjuster import adjust_precipitation_for_month
 from generators.hourly_generation.hourly_interpolator import (
-    interpolate_hourly_temperature,
+    generate_continuous_temperature,
+    generate_continuous_humidity,
+    generate_continuous_pressure,
     distribute_precipitation,
     interpolate_wind_speed,
-    interpolate_hourly_humidity,
-    interpolate_pressure,
 )
 
 class SyntheticWeatherGenerator:
@@ -252,77 +252,49 @@ class SyntheticWeatherGenerator:
         """
         Generate hourly data (24 records per day) from daily records.
 
-        Uses sinusoidal interpolation for temperature, humidity, and pressure,
-        Gaussian distribution for precipitation, and a Gaussian wind profile.
-        
+        Temperature, humidity and pressure are generated as continuous series
+        across the entire period (no day-boundary discontinuities).  Wind and
+        precipitation are still computed per day.
+
         Args:
             daily_data: List of daily records
-        
+
         Returns:
             List of dictionaries with hourly data
         """
-        all_hourly = []
-        
-        for daily_rec in daily_data:
+        # --- Continuous series for temp / humidity / pressure ---------------
+        temperature_series = generate_continuous_temperature(daily_data, self._parse_hour)
+        humidity_series = generate_continuous_humidity(daily_data, self._parse_hour)
+        pressure_series = generate_continuous_pressure(daily_data, self._parse_hour)
+
+        # --- Assemble hourly records ---------------------------------------
+        all_hourly: List[Dict] = []
+        for day_idx, daily_rec in enumerate(daily_data):
             date_label = daily_rec['date']
-            
-            # Temperatures
-            tmin = daily_rec.get('temperature_min')
-            tmax = daily_rec.get('temperature_max')
-            hour_tmin = self._parse_hour(daily_rec.get('hour_tmin'))
-            hour_tmax = self._parse_hour(daily_rec.get('hour_tmax'))
-            
-            tmean = daily_rec.get('temperature_mean')
-            if tmin is not None and tmax is not None:
-                hourly_temps = interpolate_hourly_temperature(tmin, tmax, tmean, hour_tmin, hour_tmax)
-            else:
-                hourly_temps = [tmean] * 24 if tmean is not None else [None] * 24
-            
-            # Precipitation
+            base_hour = day_idx * 24
+
+            # Per-day variables (unchanged)
             prec = daily_rec.get('precipitation', 0.0) or 0.0
             hourly_precip = distribute_precipitation(prec)
-            
-            # Wind
+
             wind_mean = daily_rec.get('wind_speed_mean')
             wind_max = daily_rec.get('wind_speed_max')
             hour_wind = self._parse_hour(daily_rec.get('hour_wind_max'))
             hourly_wind = interpolate_wind_speed(wind_mean, wind_max, hour_wind)
             wind_dir = daily_rec.get('wind_direction')
-            
-            # Humidity
-            hr_min = daily_rec.get('humidity_min')
-            hr_max = daily_rec.get('humidity_max')
-            hr_mean = daily_rec.get('humidity_mean')
-            if hr_min is not None and hr_max is not None:
-                hour_hrmin = self._parse_hour(daily_rec.get('hour_hrmin'))
-                hour_hrmax = self._parse_hour(daily_rec.get('hour_hrmax'))
-                hourly_humidity = interpolate_hourly_humidity(hr_min, hr_max, hr_mean, hour_hrmin, hour_hrmax)
-            else:
-                hourly_humidity = [None] * 24
 
-            # Pressure
-            pres_min = daily_rec.get('pressure_min')
-            pres_max = daily_rec.get('pressure_max')
-            if pres_min is not None and pres_max is not None:
-                hour_presmin = self._parse_hour(daily_rec.get('hour_presmin'))
-                hour_presmax = self._parse_hour(daily_rec.get('hour_presmax'))
-                hourly_pressure = interpolate_pressure(pres_min, pres_max, hour_presmin, hour_presmax)
-            else:
-                hourly_pressure = [None] * 24
-
-            # Create 24 hourly records
             for hour in range(24):
-                datetime_iso = f"{date_label}T{hour:02d}:00:00Z"
+                global_hour = base_hour + hour
                 all_hourly.append({
-                    'datetime': datetime_iso,
-                    'temperature': hourly_temps[hour],
+                    'datetime': f"{date_label}T{hour:02d}:00:00Z",
+                    'temperature': temperature_series[global_hour],
                     'precipitation': hourly_precip[hour],
                     'wind_speed': hourly_wind[hour],
                     'wind_direction': wind_dir,
-                    'humidity': hourly_humidity[hour],
-                    'pressure': hourly_pressure[hour]
+                    'humidity': humidity_series[global_hour],
+                    'pressure': pressure_series[global_hour],
                 })
-        
+
         return all_hourly
     
     # ========================================================================
