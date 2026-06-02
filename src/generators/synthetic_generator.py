@@ -34,6 +34,7 @@ from generators.hourly_generation.hourly_interpolator import (
     generate_continuous_temperature,
     generate_continuous_humidity,
     generate_continuous_pressure,
+    generate_continuous_wind,
     distribute_precipitation,
     interpolate_wind_speed,
 )
@@ -262,10 +263,11 @@ class SyntheticWeatherGenerator:
         Returns:
             List of dictionaries with hourly data
         """
-        # --- Continuous series for temp / humidity / pressure ---------------
+        # --- Continuous series for temp / humidity / pressure / wind ---------------
         temperature_series = generate_continuous_temperature(daily_data, self._parse_hour)
         humidity_series = generate_continuous_humidity(daily_data, self._parse_hour)
         pressure_series = generate_continuous_pressure(daily_data, self._parse_hour)
+        wind_series = generate_continuous_wind(daily_data, self._parse_hour)
 
         # --- Assemble hourly records ---------------------------------------
         all_hourly: List[Dict] = []
@@ -280,7 +282,6 @@ class SyntheticWeatherGenerator:
             wind_mean = daily_rec.get('wind_speed_mean')
             wind_max = daily_rec.get('wind_speed_max')
             hour_wind = self._parse_hour(daily_rec.get('hour_wind_max'))
-            hourly_wind = interpolate_wind_speed(wind_mean, wind_max, hour_wind)
             wind_dir = daily_rec.get('wind_direction')
 
             for hour in range(24):
@@ -289,7 +290,7 @@ class SyntheticWeatherGenerator:
                     'datetime': f"{date_label}T{hour:02d}:00:00Z",
                     'temperature': temperature_series[global_hour],
                     'precipitation': hourly_precip[hour],
-                    'wind_speed': hourly_wind[hour],
+                    'wind_speed': wind_series[global_hour],
                     'wind_direction': wind_dir,
                     'humidity': humidity_series[global_hour],
                     'pressure': pressure_series[global_hour],
@@ -536,11 +537,10 @@ class SyntheticWeatherGenerator:
                     if diff_wind > 0.5:
                         safe_print(f"  ⚠️  {date}: Hourly wind mean ({mean_hourly_wind:.1f} m/s) vs daily ({daily_wind_mean:.1f} m/s), Diff={diff_wind:.2f} m/s")
                 
-                # Validate expected max wind gust is reached
+                # Validate expected max wind gust is not exceeded
                 if daily_wind_max is not None:
-                    diff_wind_max = abs(max_hourly_wind - daily_wind_max)
-                    if diff_wind_max > 0.1:
-                        safe_print(f"  ⚠️  {date}: Max wind gust does not reach expected value. Hourly={max_hourly_wind:.1f} m/s, Expected={daily_wind_max:.1f} m/s, Diff={diff_wind_max:.2f} m/s")
+                    if max_hourly_wind > daily_wind_max + 0.1:
+                        safe_print(f"  ⚠️  {date}: Max wind gust exceeds expected value. Hourly={max_hourly_wind:.1f} m/s, Expected={daily_wind_max:.1f} m/s")
         
         return all_pass
     

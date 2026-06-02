@@ -431,6 +431,174 @@ def generate_continuous_pressure(
 # ============================================================================
 # Unchanged helpers – precipitation & wind
 # ============================================================================
+def generate_continuous_wind(
+    daily_data: List[dict],
+    parse_hour_fn: Callable,
+) -> List[Optional[float]]:
+    """Generate a continuous hourly wind speed series for the entire period.
+    
+    This replaces the older per-day approach, treating `wind_max` as a soft 
+    constraint (target max between 80% and 95%) and using a multiplicative
+    scaling factor interpolated over time to gently approximate the daily
+    mean (`wind_avg`) without introducing day-boundary discontinuities.
+    
+    The series is composed of:
+      V(t) = (B(t) + N(t)) * Factor(t) + G(t) * Factor(t)
+    where B is the trend, N is smoothed natural noise, G is the gust episode.
+    
+    Args:
+        daily_data:    List of daily record dicts.
+        parse_hour_fn: Callable that converts a raw hour field to `int`.
+        
+    Returns:
+        List of length `len(daily_data) * 24` with hourly wind speeds
+        rounded to 1 decimal, or `[None] * N`.
+    """
+    total_hours = len(daily_data) * 24
+    has_data = any(rec.get('wind_speed_mean') is not None for rec in daily_data)
+    if not has_data:
+        return [None] * total_hours
+
+    # 1. Base component B(t)
+    B = [0.0] * total_hours
+    mean_points = []
+    for day_idx, rec in enumerate(daily_data):
+        val = rec.get('wind_speed_mean')
+        if val is None:
+            val = 0.0
+        mean_points.append((day_idx * 24 + 12, val))
+        
+    if not mean_points:
+        return [None] * total_hours
+
+    mean_points.insert(0, (0, mean_points[0][1]))
+    mean_points.append((total_hours, mean_points[-1][1]))
+    
+    for i in range(len(mean_points) - 1):
+        h1, v1 = mean_points[i]
+        h2, v2 = mean_points[i+1]
+        segment = _cosine_interpolate(h1, v1, h2, v2)
+        for j, val in enumerate(segment):
+            if h1 + j < total_hours:
+                B[h1 + j] = val
+
+    # 2. Turbulence / Noise component N(t)
+    # Combine a slow wave and a fast wave for continuous natural turbulence
+    slow_noise_points = []
+    for h in range(0, total_hours + 6, 6):
+        slow_noise_points.append((h, random.uniform(-1.0, 1.0)))
+        
+    fast_noise_points = []
+    for h in range(0, total_hours + 2, 2):  # Higher frequency: every 2 hours
+        fast_noise_points.append((h, random.uniform(-1.0, 1.0)))
+        
+    slow_N = [0.0] * total_hours
+    for i in range(len(slow_noise_points) - 1):
+        h1, v1 = slow_noise_points[i]
+        h2, v2 = slow_noise_points[i+1]
+        segment = _cosine_interpolate(h1, v1, h2, v2)
+        for j, val in enumerate(segment):
+            if h1 + j < total_hours:
+                slow_N[h1 + j] = val
+                
+    fast_N = [0.0] * total_hours
+    for i in range(len(fast_noise_points) - 1):
+        h1, v1 = fast_noise_points[i]
+        h2, v2 = fast_noise_points[i+1]
+        segment = _cosine_interpolate(h1, v1, h2, v2)
+        for j, val in enumerate(segment):
+            if h1 + j < total_hours:
+                fast_N[h1 + j] = val
+
+    Combined_N = [0.0] * total_hours
+    for h in range(total_hours):
+        # Blend slow and fast noise for a spiky but connected profile
+        Combined_N[h] = 0.4 * slow_N[h] + 0.6 * fast_N[h]
+
+    # 3. Gust component G(t)
+    G = [0.0] * total_hours
+    for day_idx, rec in enumerate(daily_data):
+        wind_max = rec.get('wind_speed_max')
+        wind_mean = rec.get('wind_speed_mean')
+        
+        if wind_max is None or wind_mean is None or wind_max <= wind_mean:
+            continue
+            
+        hour_max_str = rec.get('hour_wind_max')
+        hour_max = parse_hour_fn(hour_max_str)
+        global_hour_max = day_idx * 24 + hour_max
+        
+        # Less aggressive max target (60% to 90%)
+        target_max = wind_max * random.uniform(0.60, 0.90)
+        
+        # Reduced amplitude so G(t) doesn't dominate the series
+        diff = target_max - wind_mean
+        amplitude = max(0.0, diff * random.uniform(0.50, 0.60))
+        
+        # Much wider episode (8 to 12 hours half-width)
+        width = random.randint(8, 12)
+        
+        for h in range(global_hour_max - width, global_hour_max + width + 1):
+            if 0 <= h < total_hours:
+                dist = abs(h - global_hour_max)
+                factor = (1 + cos(pi * dist / width)) / 2
+                G[h] += amplitude * factor
+
+    # 4. Combine into Raw(t)
+    raw_series = [0.0] * total_hours
+    for h in range(total_hours):
+        # Base level is B(t) + G(t). We apply turbulence proportionally.
+        # Combined_N is in [-1, 1]. A 50% turbulence means * (1 + 0.5 * N).
+        base_level = B[h] + G[h]
+        val = base_level * (1 + 0.5 * Combined_N[h])
+        raw_series[h] = max(0.1, val)
+
+    # 5. Smooth Multiplicative Scaling
+    factor_points = []
+    for day_idx, rec in enumerate(daily_data):
+        target_mean = rec.get('wind_speed_mean')
+        if target_mean is None:
+            target_mean = 0.0
+            
+        start_h = day_idx * 24
+        end_h = start_h + 24
+        day_raw = raw_series[start_h:end_h]
+        current_mean = sum(day_raw) / 24
+        
+        if current_mean > 0:
+            daily_factor = target_mean / current_mean
+        else:
+            daily_factor = 1.0
+            
+        factor_points.append((day_idx * 24 + 12, daily_factor))
+
+    factor_points.insert(0, (0, factor_points[0][1]))
+    factor_points.append((total_hours, factor_points[-1][1]))
+    
+    factor_series = [1.0] * total_hours
+    for i in range(len(factor_points) - 1):
+        h1, v1 = factor_points[i]
+        h2, v2 = factor_points[i+1]
+        segment = _cosine_interpolate(h1, v1, h2, v2)
+        for j, val in enumerate(segment):
+            if h1 + j < total_hours:
+                factor_series[h1 + j] = val
+
+    # 6. Final calculation
+    final_series = []
+    for h in range(total_hours):
+        final_val = raw_series[h] * factor_series[h]
+        
+        day_idx = h // 24
+        wind_max = daily_data[day_idx].get('wind_speed_max')
+        if wind_max is not None:
+            final_val = min(final_val, wind_max)
+            
+        final_series.append(round(max(0.0, final_val), 1))
+        
+    return final_series
+
+
 def distribute_precipitation(total_precip: float) -> List[float]:
     """Distribute daily precipitation across hours in a realistic way."""
     hourly_precip = [0.0] * 24
@@ -457,7 +625,12 @@ def interpolate_wind_speed(
     wind_max: Optional[float],
     hour_max: int,
 ) -> List[Optional[float]]:
-    """Interpolate hourly wind speed with a Gaussian peak."""
+    """Interpolate hourly wind speed with a Gaussian peak.
+    
+    DEPRECATED: Use `generate_continuous_wind` instead. This function 
+    is kept for backward compatibility and generates wind for a single
+    day independently, which causes discontinuities at day boundaries.
+    """
     if wind_avg is None:
         return [None] * 24
     if wind_max is None or wind_max <= wind_avg:
