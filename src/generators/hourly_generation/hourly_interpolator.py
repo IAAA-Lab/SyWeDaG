@@ -4,11 +4,14 @@ based on chronologically-ordered extremes (min/max) across the entire time
 series, eliminating day-boundary discontinuities.  Wind and precipitation
 helpers remain unchanged.
 """
+
 import random
 from math import cos, exp, pi
 from typing import Callable, List, Optional, Tuple
+
 # Type alias for a single extreme point: (global_hour_index, value, "min"|"max")
 Extreme = Tuple[int, float, str]
+
 # ============================================================================
 # Internal helpers
 # ============================================================================
@@ -40,56 +43,72 @@ def _cosine_interpolate(
         value = start_value + (end_value - start_value) * smooth
         values.append(value)
     return values
+
 # ---------------------------------------------------------------------------
 # Pseudo-extreme insertion
 # ---------------------------------------------------------------------------
+def _smoothstep(x: float) -> float:
+    """Cosine easing for smooth interpolation (0 → 1)."""
+    x = max(0.0, min(1.0, x))
+    return (1 - cos(pi * x)) / 2
+
 
 def _fix_boundary_flatness(
     extremes: List[Extreme], 
     daily_data: List[dict], 
     min_key: str, 
-    max_key: str, 
-    margin_func: Callable[[], float]
+    max_key: str
 ) -> List[Extreme]:
-    """Prevent flat segments at the start and end of the series."""
+    """Prevent flat segments at the start and end using temporal interpolation."""
+
     if not extremes:
         return extremes
-    
+
     new_extremes = list(extremes)
-    
+    total_hours = len(daily_data) * 24
+
     # Fix start
     first_hour, first_val, first_type = new_extremes[0]
     if first_hour > 0:
-        day0_min = float(daily_data[0].get(min_key, first_val))
-        day0_max = float(daily_data[0].get(max_key, first_val))
+        d0 = daily_data[0]
+        day_min = float(d0.get(min_key, first_val))
+        day_max = float(d0.get(max_key, first_val))
+        range_day = max(day_max - day_min, 0.1)
+        d_max = 15
+        d = min(first_hour, d_max)
+        r = _smoothstep(d / d_max)
+
         if first_type == "max":
-            pseudo_val = day0_min + margin_func()
-            pseudo_val = min(pseudo_val, first_val - 0.1)
-            new_extremes.insert(0, (0, pseudo_val, "min"))
+            pseudo_val = first_val - range_day * r
         else:
-            pseudo_val = day0_max - margin_func()
-            pseudo_val = max(pseudo_val, first_val + 0.1)
-            new_extremes.insert(0, (0, pseudo_val, "max"))
-            
+            pseudo_val = first_val + range_day * r
+
+        new_extremes.insert(0, (0, pseudo_val, "min" if first_type == "max" else "max"))
+
     # Fix end
     last_hour, last_val, last_type = new_extremes[-1]
-    total_hours = len(daily_data) * 24
     if last_hour < total_hours - 1:
-        day_last = daily_data[-1]
-        day_last_min = float(day_last.get(min_key, last_val))
-        day_last_max = float(day_last.get(max_key, last_val))
-        target_hour = total_hours - 1
-        if last_type == "max":
-            pseudo_val = day_last_min + margin_func()
-            pseudo_val = min(pseudo_val, last_val - 0.1)
-            new_extremes.append((target_hour, pseudo_val, "min"))
-        else:
-            pseudo_val = day_last_max - margin_func()
-            pseudo_val = max(pseudo_val, last_val + 0.1)
-            new_extremes.append((target_hour, pseudo_val, "max"))
-            
-    return new_extremes
+        d_last = daily_data[-1]
+        day_min = float(d_last.get(min_key, last_val))
+        day_max = float(d_last.get(max_key, last_val))
 
+        range_day = max(day_max - day_min, 0.1)
+        d_max = 9
+        d = min(total_hours - last_hour, d_max)
+        r = _smoothstep(d / d_max)
+
+        if last_type == "max":
+            pseudo_val = last_val - range_day * r
+        else:
+            pseudo_val = last_val + range_day * r
+        
+        new_extremes.append(
+            (total_hours - 1,
+             pseudo_val,
+             "min" if last_type == "max" else "max")
+        )
+
+    return new_extremes
 
 def _insert_pseudo_extremes_temperature(extremes: List[Extreme]) -> List[Extreme]:
     """Insert pseudo-extremes for temperature series using surrounding minimums."""
@@ -154,6 +173,7 @@ def _insert_pseudo_extremes_humidity(extremes: List[Extreme]) -> List[Extreme]:
             new_extremes.append(curr)
         extremes = new_extremes
     return extremes
+
 def _insert_pseudo_extremes_pressure(extremes: List[Extreme]) -> List[Extreme]:
     """Insert pseudo-extremes for pressure series.
     * **max → max**: pseudo-minimum at the midpoint, slightly below the lower
@@ -182,6 +202,7 @@ def _insert_pseudo_extremes_pressure(extremes: List[Extreme]) -> List[Extreme]:
             new_extremes.append(curr)
         extremes = new_extremes
     return extremes
+
 # ---------------------------------------------------------------------------
 # Extreme extraction helpers
 # ---------------------------------------------------------------------------
@@ -218,6 +239,7 @@ def _fill_missing_extremes(
             daily_data[i][hour_min_key] = daily_data[i + 1][hour_min_key]
         if daily_data[i].get(hour_max_key) is None and daily_data[i + 1].get(hour_max_key) is not None:
             daily_data[i][hour_max_key] = daily_data[i + 1][hour_max_key]
+
 def _extract_extremes(
     daily_data: List[dict],
     min_key: str,
@@ -258,6 +280,7 @@ def _extract_extremes(
             extremes.append((global_max, float(val_max), "max"))
             extremes.append((global_min, float(val_min), "min"))
     return extremes
+
 # ---------------------------------------------------------------------------
 # Core: build a full continuous series from a list of extremes
 # ---------------------------------------------------------------------------
@@ -294,6 +317,7 @@ def _build_continuous_series(
     for h in range(last_hour, total_hours):
         series[h] = last_val
     return series
+
 # ============================================================================
 # Public API – continuous series generators
 # ============================================================================
@@ -336,12 +360,12 @@ def generate_continuous_temperature(
     if not extremes:
         return [None] * total_hours
     extremes = _fix_boundary_flatness(
-        extremes, working_data, 'temperature_min', 'temperature_max', 
-        lambda: random.uniform(0.5, 2.0)
+        extremes, working_data, 'temperature_min', 'temperature_max'
     )
     extremes = _insert_pseudo_extremes_temperature(extremes)
     series = _build_continuous_series(extremes, total_hours)
     return [round(v, 1) for v in series]
+
 def generate_continuous_humidity(
     daily_data: List[dict],
     parse_hour_fn: Callable,
@@ -379,12 +403,12 @@ def generate_continuous_humidity(
     if not extremes:
         return [None] * total_hours
     extremes = _fix_boundary_flatness(
-        extremes, working_data, 'humidity_min', 'humidity_max', 
-        lambda: random.uniform(2.0, 5.0)
+        extremes, working_data, 'humidity_min', 'humidity_max'
     )
     extremes = _insert_pseudo_extremes_humidity(extremes)
     series = _build_continuous_series(extremes, total_hours)
     return [int(round(max(0, min(100, v)))) for v in series]
+
 def generate_continuous_pressure(
     daily_data: List[dict],
     parse_hour_fn: Callable,
@@ -422,12 +446,12 @@ def generate_continuous_pressure(
     if not extremes:
         return [None] * total_hours
     extremes = _fix_boundary_flatness(
-        extremes, working_data, 'pressure_min', 'pressure_max', 
-        lambda: random.uniform(1.0, 3.0)
+        extremes, working_data, 'pressure_min', 'pressure_max'
     )
     extremes = _insert_pseudo_extremes_pressure(extremes)
     series = _build_continuous_series(extremes, total_hours)
     return [round(v, 1) for v in series]
+
 # ============================================================================
 # Unchanged helpers – precipitation & wind
 # ============================================================================
@@ -598,7 +622,6 @@ def generate_continuous_wind(
         
     return final_series
 
-
 def distribute_precipitation(total_precip: float) -> List[float]:
     """Distribute daily precipitation across hours in a realistic way."""
     hourly_precip = [0.0] * 24
@@ -620,6 +643,7 @@ def distribute_precipitation(total_precip: float) -> List[float]:
     if total_distributed > 0:
         hourly_precip = [p * total_precip / total_distributed for p in hourly_precip]
     return [round(p, 1) for p in hourly_precip]
+
 def interpolate_wind_speed(
     wind_avg: Optional[float],
     wind_max: Optional[float],
