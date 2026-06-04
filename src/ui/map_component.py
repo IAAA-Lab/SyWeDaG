@@ -4,6 +4,7 @@ Includes search functionality and zoom controls
 """
 
 import os
+import json
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
@@ -154,22 +155,12 @@ def add_country_polygons(m, config):
     except Exception as e:
         safe_print(f"⚠️ Error adding country polygons: {e}")
 
-def create_map(config, center=None, zoom=None):
+def create_map(config):
     """
-    Create a Folium map without overlays
-    
-    Args:
-        config (dict): Configuration dictionary
-        center (list): Map center [lat, lon]
-        zoom (int): Zoom level
-        
-    Returns:
-        folium.Map: Configured map object
+    Create a Folium map without overlays.
     """
-    if center is None:
-        center = config.get("default_map_center", [40.4168, -3.7038])
-    if zoom is None:
-        zoom = config.get("default_zoom", 6)
+    center = config.get("default_map_center", [40.4168, -3.7038])
+    zoom = config.get("default_zoom", 6)
     
     # Create base map
     m = folium.Map(
@@ -181,6 +172,19 @@ def create_map(config, center=None, zoom=None):
         dragging=True,
         attribution_control=True
     )
+    
+    # Inject CSS to remove the black focus outline when clicking polygons
+    css = """
+    <style>
+    path.leaflet-interactive:focus,
+    path:focus,
+    svg:focus,
+    .leaflet-container:focus {
+        outline: none !important;
+    }
+    </style>
+    """
+    m.get_root().header.add_child(folium.Element(css))
     
     # Add country polygons
     add_country_polygons(m, config)
@@ -218,7 +222,6 @@ def render_map(config):
             st.session_state.map_center = list(coords)
             st.session_state.map_zoom = 12
             st.session_state.last_search = search_query
-            st.rerun()
 
     # SIMPLE SELECT BUTTON - at the bottom
     has_selection = (st.session_state.get('selected_point') is not None and 
@@ -236,23 +239,28 @@ def render_map(config):
             st.rerun()
     
     # Get current map state
-    center = st.session_state.get('map_center', config.get("default_map_center"))
-    zoom = st.session_state.get('map_zoom', config.get("default_zoom"))
+    center = st.session_state.get('map_center', config.get("default_map_center", [40.4168, -3.7038]))
+    zoom = st.session_state.get('map_zoom', config.get("default_zoom", 6))
     
     # Create and display map
-    m = create_map(config, center, zoom)
+    m = create_map(config)
     
-    # Add marker for selected point
-    if st.session_state.selected_point:
+    # Add marker for selected point using FeatureGroup so it doesn't modify the cached map
+    fg = None
+    if st.session_state.get('selected_point'):
+        fg = folium.FeatureGroup(name="Selected Location")
         folium.Marker(
             location=st.session_state.selected_point,
             popup="Selected Location",
             icon=folium.Icon(color="red", icon="info-sign")
-        ).add_to(m)
+        ).add_to(fg)
     
     # Render map (full screen, no borders)
     map_data = st_folium(
         m,
+        center=center,
+        zoom=zoom,
+        feature_group_to_add=fg,
         width="100%",
         height=800,
         key="main_map",
