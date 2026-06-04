@@ -318,6 +318,113 @@ def _build_continuous_series(
         series[h] = last_val
     return series
 
+# ---------------------------------------------------------------------------
+# Mean correction
+# ---------------------------------------------------------------------------
+def _apply_mean_correction(
+    series: List[float],
+    daily_data: List[dict],
+    parse_hour_fn: Callable,
+    mean_key: str,
+    min_key: str,
+    max_key: str,
+    hour_min_key: str,
+    hour_max_key: str,
+    tolerance: float,
+    max_iterations: int = 10
+) -> List[float]:
+    """Correct continuous series to approximate daily means while respecting extremes."""
+    total_hours = len(series)
+    if total_hours == 0:
+        return series
+        
+    corrected_series = list(series)
+
+    # Phase 3: Weights
+    weights = [1.0] * total_hours
+    for day_idx, rec in enumerate(daily_data):
+        h_min_str = rec.get(hour_min_key)
+        h_max_str = rec.get(hour_max_key)
+        if h_min_str is None or h_max_str is None:
+            continue
+            
+        h_min = parse_hour_fn(h_min_str)
+        h_max = parse_hour_fn(h_max_str)
+        
+        for h in range(24):
+            global_h = day_idx * 24 + h
+            if global_h < total_hours:
+                dist_min = abs(h - h_min)
+                dist_max = abs(h - h_max)
+                dist = min(dist_min, dist_max)
+                norm_dist = min(1.0, dist / 6.0)
+                weights[global_h] = _smoothstep(norm_dist)
+
+    for _ in range(max_iterations):
+        # Phase 1: Calculate daily error
+        errors = []
+        max_abs_error = 0.0
+        has_mean_data = False
+        
+        for day_idx, rec in enumerate(daily_data):
+            target_mean = rec.get(mean_key)
+            if target_mean is None:
+                errors.append(0.0)
+                continue
+                
+            has_mean_data = True
+            start_h = day_idx * 24
+            end_h = start_h + 24
+            day_slice = corrected_series[start_h:end_h]
+            if not day_slice:
+                errors.append(0.0)
+                continue
+            
+            generated_mean = sum(day_slice) / len(day_slice)
+            error_day = float(target_mean) - generated_mean
+            errors.append(error_day)
+            max_abs_error = max(max_abs_error, abs(error_day))
+            
+        if not has_mean_data or max_abs_error <= tolerance:
+            break
+            
+        # Phase 2: Continuous correction signal
+        correction_points = []
+        for day_idx, error in enumerate(errors):
+            correction_points.append((day_idx * 24 + 12, error))
+            
+        if correction_points:
+            correction_points.insert(0, (0, correction_points[0][1]))
+            correction_points.append((total_hours, correction_points[-1][1]))
+            
+        correction_series = [0.0] * total_hours
+        if len(correction_points) > 1:
+            for i in range(len(correction_points) - 1):
+                h1, v1 = correction_points[i]
+                h2, v2 = correction_points[i+1]
+                segment = _cosine_interpolate(h1, v1, h2, v2)
+                for j, val in enumerate(segment):
+                    if h1 + j < total_hours:
+                        correction_series[h1 + j] = val
+        
+        # Phase 4 & 5: Apply correction & Limit
+        for h in range(total_hours):
+            corrected = corrected_series[h] + correction_series[h] * weights[h]
+            
+            day_idx = h // 24
+            if day_idx < len(daily_data):
+                rec = daily_data[day_idx]
+                day_min = rec.get(min_key)
+                day_max = rec.get(max_key)
+                if day_min is not None:
+                    corrected = max(corrected, float(day_min))
+                if day_max is not None:
+                    corrected = min(corrected, float(day_max))
+            
+            corrected_series[h] = corrected
+
+    return corrected_series
+
 # ============================================================================
 # Public API – continuous series generators
 # ============================================================================
@@ -364,6 +471,19 @@ def generate_continuous_temperature(
     )
     extremes = _insert_pseudo_extremes_temperature(extremes)
     series = _build_continuous_series(extremes, total_hours)
+    
+    series = _apply_mean_correction(
+        series=series,
+        daily_data=working_data,
+        parse_hour_fn=parse_hour_fn,
+        mean_key='temperature_mean',
+        min_key='temperature_min',
+        max_key='temperature_max',
+        hour_min_key='hour_tmin',
+        hour_max_key='hour_tmax',
+        tolerance=0.05
+    )
+    
     return [round(v, 1) for v in series]
 
 def generate_continuous_humidity(
@@ -407,6 +527,19 @@ def generate_continuous_humidity(
     )
     extremes = _insert_pseudo_extremes_humidity(extremes)
     series = _build_continuous_series(extremes, total_hours)
+    
+    series = _apply_mean_correction(
+        series=series,
+        daily_data=working_data,
+        parse_hour_fn=parse_hour_fn,
+        mean_key='humidity_mean',
+        min_key='humidity_min',
+        max_key='humidity_max',
+        hour_min_key='hour_hrmin',
+        hour_max_key='hour_hrmax',
+        tolerance=0.5
+    )
+    
     return [int(round(max(0, min(100, v)))) for v in series]
 
 def generate_continuous_pressure(
@@ -450,6 +583,19 @@ def generate_continuous_pressure(
     )
     extremes = _insert_pseudo_extremes_pressure(extremes)
     series = _build_continuous_series(extremes, total_hours)
+    
+    series = _apply_mean_correction(
+        series=series,
+        daily_data=working_data,
+        parse_hour_fn=parse_hour_fn,
+        mean_key='pressure_mean',
+        min_key='pressure_min',
+        max_key='pressure_max',
+        hour_min_key='hour_presmin',
+        hour_max_key='hour_presmax',
+        tolerance=0.05
+    )
+    
     return [round(v, 1) for v in series]
 
 # ============================================================================
