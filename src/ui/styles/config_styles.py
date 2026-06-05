@@ -261,6 +261,27 @@ def apply_config_styles():
     .st-key-correction_method_radio div {
         color: black !important;
     }
+    
+    /* Error Modal Styles */
+    .error-modal-container {
+        background-color: #e78888 !important;
+        border: 1px solid #ef4444 !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+        margin-bottom: 16px !important;
+        color: #991b1b !important;
+    }
+    
+    .error-modal-container h4 {
+        color: #b91c1c !important;
+        margin-top: 0 !important;
+        margin-bottom: 10px !important;
+    }
+    
+    [data-testid="stDialog"] .error-modal-container p {
+        color: #ffffff !important;
+        margin-bottom: 0 !important;
+    }
                 
     </style>
     """, unsafe_allow_html=True)

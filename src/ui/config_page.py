@@ -92,6 +92,21 @@ def show_template_modal_dialog():
             "the temperature adjustment will be skipped for that period."
         )
 
+@st.dialog("Data Source Error")
+def show_error_modal(error_message):
+    """Show modal dialog when an error occurs during data generation."""
+    st.markdown(f"""
+    <div class="error-modal-container">
+        <h4>❌ Error Occurred</h4>
+        <p>{error_message}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("Close", key="close_error_modal", use_container_width=True):
+        st.session_state.show_error_modal = False
+        st.session_state.error_message = None
+        st.rerun()
+
 
 def render_config_page(config):
     """
@@ -103,6 +118,10 @@ def render_config_page(config):
     
     # Apply config page styles
     apply_config_styles()
+    
+    # Check if we need to show an error modal
+    if st.session_state.get('show_error_modal', False):
+        show_error_modal(st.session_state.get('error_message', 'An unknown error occurred.'))
     
     # Start wrapper div with margins
     st.markdown('<div class="config-wrapper">', unsafe_allow_html=True)
@@ -358,8 +377,10 @@ def render_config_page(config):
                 error_message = str(e)
                 safe_print(f"Error: {error_message}")
                 modal_placeholder.empty()
-                st.error(f"❌ {error_message}")
                 st.session_state.generating = False
+                st.session_state.show_error_modal = True
+                st.session_state.error_message = error_message
+                st.rerun()
             except Exception as e:
                 import traceback
                 error_msg = traceback.format_exc()
@@ -367,6 +388,8 @@ def render_config_page(config):
                 safe_print(f"Error getting mandatory data: {e}")
                 safe_print(error_msg)
                 modal_placeholder.empty()
-                st.error(f"❌ {error_message}")
                 st.session_state.generating = False
+                st.session_state.show_error_modal = True
+                st.session_state.error_message = error_message
+                st.rerun()
 
