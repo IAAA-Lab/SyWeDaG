@@ -735,9 +735,21 @@ class SyntheticWeatherGenerator:
                 return 12
             time_str = str(time_str).strip()
             if time_str.isdigit():
-                return int(time_str) % 24
+                hour = int(time_str)
+
+                if hour in (24, 2400):
+                    return 23
+
+                return hour % 24
             if ':' in time_str:
-                return int(time_str.split(':')[0]) % 24
+                hour, minute = time_str.split(':', 1)
+                hour = int(hour)
+                minute = int(minute)
+
+                if hour == 24 and minute == 0:
+                    return 23
+
+                return hour % 24
             return 12
         except (ValueError, IndexError):
             return 12

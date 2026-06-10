@@ -331,7 +331,7 @@ def _apply_mean_correction(
     hour_min_key: str,
     hour_max_key: str,
     tolerance: float,
-    max_iterations: int = 10
+    max_iterations: int = 15
 ) -> List[float]:
     """Correct continuous series to approximate daily means while respecting extremes."""
     total_hours = len(series)
@@ -354,11 +354,18 @@ def _apply_mean_correction(
         for h in range(24):
             global_h = day_idx * 24 + h
             if global_h < total_hours:
+
+                # Peso respecto a Tmin/Tmax
                 dist_min = abs(h - h_min)
                 dist_max = abs(h - h_max)
-                dist = min(dist_min, dist_max)
-                norm_dist = min(1.0, dist / 6.0)
-                weights[global_h] = _smoothstep(norm_dist)
+                dist_extreme = min(dist_min, dist_max)
+                extreme_weight = _smoothstep(min(1.0, dist_extreme / 6.0))
+
+                # Peso respecto al cambio de día (0h y 23h)
+                dist_boundary = min(h, 23 - h)
+                boundary_weight = _smoothstep(min(1.0, dist_boundary / 4.0))
+
+                weights[global_h] = extreme_weight * boundary_weight
 
     for _ in range(max_iterations):
         # Phase 1: Calculate daily error
