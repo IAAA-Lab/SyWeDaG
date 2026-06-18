@@ -1,4 +1,4 @@
-# MeteoSynthetic - Synthetic Weather Scenario Generator
+# SyWeDaG: Synthetic Weather Data Generator
 
 A desktop application for generating and visualizing synthetic meteorological scenarios using historical weather data from multiple sources (AEMET for Spain, extensible to other countries).
 
@@ -97,7 +97,3 @@ Edit `config/config.json` to:
 - **SQLite**: Local data storage
 - **Pandas/NumPy**: Data manipulation
 - **Plotly**: Data visualization
-
-## License
-
-TFG Project - Escuela de Ingenieria y Arquitectura de Zaragoza (EINA) - Universidad de Zaragoza (UNIZAR) - 2026
