@@ -97,7 +97,7 @@ def geocode_location(search_query: str) -> Optional[tuple[float, float]]:
         tuple: (latitude, longitude) or None if not found.
     """
     try:
-        geolocator = Nominatim(user_agent="MeteoSynthetic")
+        geolocator = Nominatim(user_agent="SyWeDaG")
         location = geolocator.geocode(search_query, timeout=10)
         if location:
             return (location.latitude, location.longitude)

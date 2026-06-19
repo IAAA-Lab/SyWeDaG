@@ -1,5 +1,5 @@
 """
-Results page component for MeteoSynthetic
+Results page component for SyWeDaG
 Displays the results of the synthetic weather data generation
 """
 

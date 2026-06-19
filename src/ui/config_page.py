@@ -1,5 +1,5 @@
 """
-Configuration page component for MeteoSynthetic
+Configuration page component for SyWeDaG
 """
 
 import streamlit as st

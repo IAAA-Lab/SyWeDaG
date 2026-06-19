@@ -33,7 +33,7 @@ class OpenMeteoWeatherSource(BaseWeatherSource):
     Open-Meteo archive implementation.
 
     Uses daily + hourly variables and transforms them to the internal
-    DailyWeatherRecord structure used by MeteoSynthetic.
+    DailyWeatherRecord structure used by SyWeDaG.
     """
 
     def __init__(self, config: dict):

@@ -1,5 +1,5 @@
 """
-Settings page component for MeteoSynthetic
+Settings page component for SyWeDaG
 Allows configuring API keys for data sources
 """
 

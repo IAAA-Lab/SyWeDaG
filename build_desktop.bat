@@ -1,6 +1,6 @@
 @echo off
-REM Build script for MeteoSynthetic - Desktop App with streamlit-desktop-app
-echo Building MeteoSynthetic desktop application...
+REM Build script for SyWeDaG - Desktop App with streamlit-desktop-app
+echo Building SyWeDaG desktop application...
 echo.
 
 REM Limpiar builds anteriores
@@ -14,9 +14,9 @@ if exist build (
     echo Removing build folder...
     rmdir /s /q build 2>nul
 )
-if exist MeteoSynthetic.spec (
+if exist SyWeDaG.spec (
     echo Removing spec file...
-    del /q MeteoSynthetic.spec 2>nul
+    del /q SyWeDaG.spec 2>nul
 )
 if exist data (
     echo Cleaning data folder...
@@ -37,7 +37,7 @@ echo Starting compilation...
 echo.
 
 streamlit-desktop-app build src/main.py ^
-  --name MeteoSynthetic ^
+  --name SyWeDaG ^
   --pyinstaller-options ^
     --collect-all streamlit ^
     --collect-all streamlit_folium ^

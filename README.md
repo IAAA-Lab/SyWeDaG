@@ -1,4 +1,4 @@
-# MeteoSynthetic - Synthetic Weather Scenario Generator
+# SyWeDaG - Synthetic Weather Data Generator
 
 A desktop application for generating and visualizing synthetic meteorological scenarios using historical weather data from multiple sources (AEMET for Spain, extensible to other countries).
 
@@ -43,7 +43,7 @@ A desktop application for generating and visualizing synthetic meteorological sc
 │       ├── historical_data_treatment.py
 │       └── system_utils.py
 ├── build_desktop.bat                # Desktop build script
-├── MeteoSynthetic.spec              # PyInstaller spec (generated/used in builds)
+├── SyWeDaG.spec              # PyInstaller spec (generated/used in builds)
 ├── requirements.txt                 # Python dependencies
 └── README.md
 ```

@@ -1,5 +1,5 @@
 """
-MeteoSynthetic - Synthetic Weather Scenario Generator
+SyWeDaG - Synthetic Weather Data Generator
 Main entry point for the Streamlit application
 """
 
@@ -14,7 +14,7 @@ load_dotenv(dotenv_path=str(env_path))
 
 # Page configuration
 st.set_page_config(
-    page_title="MeteoSynthetic",
+    page_title="SyWeDaG",
     page_icon="🌤️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -157,7 +157,7 @@ def main():
     else:
         st.markdown('''
         <div class="blue-header">
-            <h1 class="header-title">MeteoSynthetic</h1>
+            <h1 class="header-title">SyWeDaG</h1>
         </div>
         ''', unsafe_allow_html=True)
     

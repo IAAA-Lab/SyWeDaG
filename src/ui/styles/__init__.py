@@ -1,5 +1,5 @@
 """
-Styles module for MeteoSynthetic application
+Styles module for SyWeDaG application
 """
 
 from .base_styles import apply_base_styles
