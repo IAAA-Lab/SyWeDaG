@@ -91,7 +91,7 @@ class SyntheticWeatherGenerator:
     # STEP 1: Cycle daily records
     # ========================================================================
     
-    def _generate_daily_synthetic(self) -> List[Dict]:
+    def _generate_daily_synthetic(self, generation_mode: str = 'annual') -> List[Dict]:
         """
         Generate synthetic daily data by cycling historical records by month-day.
 
@@ -123,16 +123,33 @@ class SyntheticWeatherGenerator:
             if year not in records_by_month_day[month_day_key]['map']:
                 records_by_month_day[month_day_key]['map'][year] = record
 
-        # Single random permutation of all available historical years
-        historical_years = sorted(list(historical_years_set))
-        random.shuffle(historical_years)
+        historical_years = []
+        historical_years_by_month = {}
+
+        if generation_mode == 'monthly':
+            # Build one randomized cycle of historical years per month.
+            for month in range(1, 13):
+                # Collect years that contain at least one day in this month.
+                month_years = sorted({
+                    year
+                    for month_day, info in records_by_month_day.items()
+                    if int(month_day[:2]) == month
+                    for year in info['map']
+                })
+                # Randomize this month's cycle independently.
+                random.shuffle(month_years)
+                historical_years_by_month[month] = month_years
+        else:
+            # Build one randomized cycle for complete historical years.
+            historical_years = sorted(list(historical_years_set))
+            random.shuffle(historical_years)
 
         current_date = gen_start
         # shuffled list of all historical indices for fallback (cycled)
         shuffled_all_indices = list(range(len(self.historical_data)))
         random.shuffle(shuffled_all_indices)
         fallback_counter = 0
-        last_reported_generated_year = None
+        last_reported_period = None
 
         while current_date <= gen_end:
             month_day_key = f"{current_date.month:02d}-{current_date.day:02d}"
@@ -142,13 +159,33 @@ class SyntheticWeatherGenerator:
             # Determine which historical year to use for the whole generated YEAR
             year_offset = current_date.year - gen_start.year
             selected_year = None
-            if historical_years:
+            if generation_mode == 'monthly':
+                # Pick the next historical year in this month's cycle.
+                month_years = historical_years_by_month[current_date.month]
+                if month_years:
+                    selected_year = month_years[year_offset % len(month_years)]
+            elif historical_years:
+                # Keep one historical year for the complete generated year.
                 selected_year = historical_years[year_offset % len(historical_years)]
 
-            # Report mapping once per generated year so user can inspect order
-            if last_reported_generated_year != current_date.year:
-                safe_print(f"🔁 Generated year {current_date.year} -> historical year {selected_year}")
-                last_reported_generated_year = current_date.year
+            # Report annual mappings once per year and monthly mappings once per month.
+            report_period = (
+                (current_date.year, current_date.month)
+                if generation_mode == 'monthly'
+                else current_date.year
+            )
+            if last_reported_period != report_period:
+                if generation_mode == 'monthly':
+                    safe_print(
+                        f"🔁 Generated year {current_date.year}, "
+                        f"month {current_date.month:02d} -> historical year {selected_year}"
+                    )
+                else:
+                    safe_print(
+                        f"🔁 Generated year {current_date.year} -> "
+                        f"historical year {selected_year}"
+                    )
+                last_reported_period = report_period
 
             if month_day_key in records_by_month_day and selected_year is not None:
                 info = records_by_month_day[month_day_key]
@@ -552,6 +589,7 @@ class SyntheticWeatherGenerator:
         self,
         predictions_df: Optional[pd.DataFrame] = None,
         correction_method: str = 'knn',
+        generation_mode: str = 'annual',
     ) -> Tuple[List[Dict], List[Dict], int]:
         """
         Generate complete synthetic data (daily + hourly).
@@ -576,7 +614,7 @@ class SyntheticWeatherGenerator:
             Tuple (daily_data, hourly_data, total_hourly_records)
         """
         # 1. Generate synthetic daily data (historical cycle)
-        daily_data = self._generate_daily_synthetic()
+        daily_data = self._generate_daily_synthetic(generation_mode)
         safe_print(f"📅 Generated {len(daily_data)} synthetic daily records")
         
         # 2. Adjust to monthly predictions if provided
@@ -633,6 +671,7 @@ class SyntheticWeatherGenerator:
         longitude: float,
         predictions_df: Optional[pd.DataFrame] = None,
         correction_method: str = 'knn',
+        generation_mode: str = 'annual',
     ) -> Tuple[int, int, List[Dict]]:
         """
         Generate synthetic data, save it to DB, and return metadata.
@@ -679,7 +718,9 @@ class SyntheticWeatherGenerator:
             safe_print(f"📊 Inserted {len(pred_tuples)} monthly predictions")
         
         # 3. Generate data
-        daily_data, hourly_data, hourly_count = self.generate(predictions_df, correction_method)
+        daily_data, hourly_data, hourly_count = self.generate(
+            predictions_df, correction_method, generation_mode
+        )
         
         # 4. Insert generated daily data
         daily_tuples = []

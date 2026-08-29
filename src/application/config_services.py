@@ -212,6 +212,7 @@ def generate_synthetic_data(
     longitude: float,
     predictions_df: Optional[pd.DataFrame],
     correction_method_label: str,
+    generation_mode_label: str = "Annual",
 ):
     """
     Run synthetic data generation and persistence.
@@ -229,10 +230,15 @@ def generate_synthetic_data(
     )
 
     correction_method = METHOD_OPTIONS_MAP.get(correction_method_label, "knn")
+    generation_mode = {
+        "Annual": "annual",
+        "Monthly": "monthly",
+    }.get(generation_mode_label, "annual")
 
     return generator.generate_and_save(
         latitude,
         longitude,
         predictions_df,
         correction_method,
+        generation_mode,
     )

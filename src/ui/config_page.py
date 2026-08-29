@@ -231,6 +231,18 @@ def render_config_page(config):
     else:
         predictions_df = None
 
+    # ── Historical Data Distribution ────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### How would you like to distribute the data?")
+    generation_mode_label = st.radio(
+        "Distribution mode:",
+        options=["Annual", "Monthly"],
+        index=0,
+        key="generation_mode_radio",
+        horizontal=True,
+        help="Annual cycles complete historical years; Monthly cycles historical years independently for each month.",
+    )
+
     # ── Secondary Variables Method ──────────────────────────────────────
     st.markdown("---")
     st.markdown("### Secondary Variables Method")
@@ -358,6 +370,7 @@ def render_config_page(config):
                     longitude=longitude,
                     predictions_df=predictions_df,
                     correction_method_label=selected_label,
+                    generation_mode_label=generation_mode_label,
                 )
                 
                 # Clear modal

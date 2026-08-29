@@ -261,6 +261,18 @@ def apply_config_styles():
     .st-key-correction_method_radio div {
         color: black !important;
     }
+
+    /* Historical data distribution selector */
+    .st-key-generation_mode_radio label,
+    .st-key-generation_mode_radio [role="radio"],
+    .st-key-generation_mode_radio span,
+    .st-key-generation_mode_radio div {
+        color: black !important;
+    }
+
+    .st-key-generation_mode_radio ~ div {
+        color: black !important;
+    }
     
     /* Error Modal Styles */
     .error-modal-container {
