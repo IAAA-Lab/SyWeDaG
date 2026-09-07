@@ -130,7 +130,8 @@ implemented but not wired into the generation pipeline, and is untested
 accordingly.
 
 CI (`.github/workflows/ci.yml`) runs the full suite on Linux, Windows, and
-macOS across Python 3.10-3.12 on every push and pull request.
+macOS across Python 3.11-3.12 on every push and pull request (`numpy` 2.3.5,
+pinned in `requirements.txt`, requires Python >= 3.11).
 
 ## Versioning
 

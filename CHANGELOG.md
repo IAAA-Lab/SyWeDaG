@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the AEMET/Open-Meteo adapters (network calls mocked), and the results
   import/export ZIP round trip.
 - Continuous integration (`.github/workflows/ci.yml`): the test suite runs
-  on Linux, Windows, and macOS across Python 3.10-3.12, plus a smoke test
+  on Linux, Windows, and macOS across Python 3.11-3.12, plus a smoke test
   that launches the app headless and confirms it responds on each OS.
 - Offline, network-free tutorial (`examples/run_offline_demo.py`) with a
   bundled sample dataset, also run in CI as an integration test.

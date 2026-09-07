@@ -9,6 +9,17 @@ pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env   # fill in AEMET_API_KEY if you plan to use the AEMET source
 ```
 
+**macOS only:** `xgboost` needs the OpenMP runtime, which Apple's system
+Python/Xcode toolchain does not ship. Install it once via Homebrew before
+importing anything that touches `generators.daily_correctors.xgboost_model`
+(including running the test suite):
+
+```bash
+brew install libomp
+```
+
+Without it, `import xgboost` fails with `Library not loaded: @rpath/libomp.dylib`.
+
 Run the app:
 
 ```bash
