@@ -413,12 +413,14 @@ class SyntheticWeatherGenerator:
                     actual_min = min(values)
                     if actual_min < float(pred_min) - 0.1:
                         safe_print(f"  ❌  {var_label} {year}-{month:02d}: Actual minimum ({actual_min:.1f}°C) below prediction ({pred_min:.1f}°C)")
-                
+                        all_pass = False
+
                 pred_max = pred_data.get('max')
                 if pd.notna(pred_max):
                     actual_max = max(values)
                     if actual_max > float(pred_max) + 0.1:
                         safe_print(f"  ❌  {var_label} {year}-{month:02d}: Actual maximum ({actual_max:.1f}°C) above prediction ({pred_max:.1f}°C)")
+                        all_pass = False
             
             # Validate PRECIPITATION
             pred_key = (year, month, 'precipitation')
@@ -444,12 +446,14 @@ class SyntheticWeatherGenerator:
                         pred_min_val = float(pred_min)
                         if actual_mean < pred_min_val - 0.1:
                             safe_print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) below predicted minimum ({pred_min_val:.1f} mm/day)")
-                    
+                            all_pass = False
+
                     pred_max = pred_data.get('max')
                     if pd.notna(pred_max):
                         pred_max_val = float(pred_max)
                         if actual_mean > pred_max_val + 0.1:
                             safe_print(f"  ❌  Precip {year}-{month:02d}: Actual mean ({actual_mean:.1f} mm/day) above predicted maximum ({pred_max_val:.1f} mm/day)")
+                            all_pass = False
         
         return all_pass
     
@@ -511,42 +515,47 @@ class SyntheticWeatherGenerator:
                     diff_temp = abs(mean_hourly_temp - daily_tmean)
                     if diff_temp > 1.5:
                         safe_print(f"  ⚠️  {date}: Hourly mean temp ({mean_hourly_temp:.1f}°C) vs daily ({daily_tmean:.1f}°C), Diff={diff_temp:.2f}°C")
-                
+                        all_pass = False
+
                 # Validate ranges
                 hourly_tmin = min(hourly_temps)
                 hourly_tmax = max(hourly_temps)
                 daily_tmin = daily_rec.get('temperature_min') or hourly_tmin
                 daily_tmax = daily_rec.get('temperature_max') or hourly_tmax
-                
+
                 if hourly_tmin < daily_tmin - 0.1:
                     safe_print(f"  ⚠️  {date}: Hourly Tmin ({hourly_tmin:.1f}°C) below daily ({daily_tmin:.1f}°C)")
-                
+                    all_pass = False
+
                 if hourly_tmax > daily_tmax + 0.1:
                     safe_print(f"  ⚠️  {date}: Hourly Tmax ({hourly_tmax:.1f}°C) above daily ({daily_tmax:.1f}°C)")
-            
+                    all_pass = False
+
             # Validate PRECIPITATION
             hourly_precips = [r.get('precipitation') or 0 for r in hourly_recs]
             total_hourly_precip = sum(hourly_precips)
             daily_precip = daily_rec.get('precipitation') or 0
-            
+
             diff_precip = abs(total_hourly_precip - daily_precip)
             if diff_precip > 0.5:
                 safe_print(f"  ⚠️  {date}: Hourly total precip ({total_hourly_precip:.1f} mm) vs daily ({daily_precip:.1f} mm), Diff={diff_precip:.2f} mm")
-            
+                all_pass = False
+
             # Validate HUMIDITY
-            hourly_humidities = [r.get('humidity') for r in hourly_recs 
+            hourly_humidities = [r.get('humidity') for r in hourly_recs
                                 if r.get('humidity') is not None]
             if hourly_humidities:
                 mean_hourly_humid = np.mean(hourly_humidities)
                 daily_humid_mean = daily_rec.get('humidity_mean')
-                
+
                 if daily_humid_mean is not None:
                     diff_humid = abs(mean_hourly_humid - daily_humid_mean)
                     if diff_humid > 5:
                         safe_print(f"  ⚠️  {date}: Hourly humidity mean ({mean_hourly_humid:.1f}%) vs daily ({daily_humid_mean:.1f}%), Diff={diff_humid:.1f}%")
-            
+                        all_pass = False
+
             # Validate PRESSURE
-            hourly_pressures = [r.get('pressure') for r in hourly_recs 
+            hourly_pressures = [r.get('pressure') for r in hourly_recs
                                if r.get('pressure') is not None]
             if hourly_pressures:
                 mean_hourly_pres = np.mean(hourly_pressures)
@@ -555,29 +564,32 @@ class SyntheticWeatherGenerator:
                 if daily_pres_min is None or daily_pres_max is None:
                     continue
                 daily_pres_mean = (daily_pres_min + daily_pres_max) / 2
-                
+
                 diff_pres = abs(mean_hourly_pres - daily_pres_mean)
                 if diff_pres > 2.0:
                     safe_print(f"  ⚠️  {date}: Hourly pressure mean ({mean_hourly_pres:.1f} hPa) vs daily ({daily_pres_mean:.1f} hPa), Diff={diff_pres:.1f} hPa")
-            
+                    all_pass = False
+
             # Validate WIND
-            hourly_winds = [r.get('wind_speed') for r in hourly_recs 
+            hourly_winds = [r.get('wind_speed') for r in hourly_recs
                            if r.get('wind_speed') is not None]
             if hourly_winds:
                 mean_hourly_wind = np.mean(hourly_winds)
                 daily_wind_mean = daily_rec.get('wind_speed_mean')
                 max_hourly_wind = max(hourly_winds)
                 daily_wind_max = daily_rec.get('wind_speed_max')
-                
+
                 if daily_wind_mean is not None:
                     diff_wind = abs(mean_hourly_wind - daily_wind_mean)
                     if diff_wind > 0.5:
                         safe_print(f"  ⚠️  {date}: Hourly wind mean ({mean_hourly_wind:.1f} m/s) vs daily ({daily_wind_mean:.1f} m/s), Diff={diff_wind:.2f} m/s")
-                
+                        all_pass = False
+
                 # Validate expected max wind gust is not exceeded
                 if daily_wind_max is not None:
                     if max_hourly_wind > daily_wind_max + 0.1:
                         safe_print(f"  ⚠️  {date}: Max wind gust exceeds expected value. Hourly={max_hourly_wind:.1f} m/s, Expected={daily_wind_max:.1f} m/s")
+                        all_pass = False
         
         return all_pass
     

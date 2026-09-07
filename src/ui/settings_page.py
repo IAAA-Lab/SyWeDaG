@@ -11,6 +11,7 @@ from dotenv import load_dotenv, set_key
 from ui.styles.settings_styles import apply_settings_styles
 from utils.system_utils import get_resource_path
 from database.sqliteDB import clear_all_data
+from _version import __version__
 
 
 def _save_api_keys_to_env(config: dict, api_keys: dict) -> tuple[bool, str]:
@@ -127,6 +128,9 @@ def render_settings_page(config: dict):
             st.success(f"Database cleaned successfully.")
         except Exception as error:
             st.error(f"Error cleaning database: {error}")
+
+    st.markdown("### About")
+    st.caption(f"SyWeDaG version {__version__}")
 
     st.markdown('</div>', unsafe_allow_html=True)
     
