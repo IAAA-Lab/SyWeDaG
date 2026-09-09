@@ -42,6 +42,7 @@ A desktop application for generating and visualizing synthetic meteorological sc
 │   │       └── hourly_interpolator.py
 │   ├── database/
 │   │   └── sqliteDB.py              # DB schema and persistence helpers
+│   ├── documentation                # Detailed documentation of the software structure and supported models
 │   ├── modelValidation              # Instructions and utilities for validating the supported models
 │   └── utils/                       # Shared utility helpers
 │       ├── data_parsing.py
