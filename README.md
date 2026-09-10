@@ -67,6 +67,20 @@ A desktop application for generating and visualizing synthetic meteorological sc
 - **Data Source Highlighting**: Visual indication of areas with available data
 - **Modular Design**: Easy to add new data sources for other countries
 
+## Platform Support
+
+The software has been tested on the following platforms:
+
+| Operating System | Web | Desktop | Support Status |
+|---|---:|---:|---|
+| Ubuntu 22.04 | ✅ | ⚠️ | Partially supported |
+| Windows | ✅ | ✅ | Supported |
+| macOS | — | — | Not tested |
+
+On Ubuntu 22.04, the project can be successfully compiled and executed in a web-based environment. However, compatibility issues currently prevent the desktop version from running correctly.
+
+Linux desktop support is currently under development. We are actively working to resolve these issues and provide full Linux desktop support.
+
 ## Installation
 
 Install Python dependencies:
