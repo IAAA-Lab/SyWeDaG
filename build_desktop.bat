@@ -39,6 +39,7 @@ echo.
 streamlit-desktop-app build src/main.py ^
   --name SyWeDaG ^
   --pyinstaller-options ^
+    --paths src ^
     --collect-all streamlit ^
     --collect-all streamlit_folium ^
     --collect-all folium ^
@@ -77,6 +78,7 @@ streamlit-desktop-app build src/main.py ^
     --add-data "src/application;application" ^
     --add-data "src/utils;utils" ^
     --hidden-import database.sqliteDB ^
+    --hidden-import _version ^
     --hidden-import sqlite3 ^
     --hidden-import dotenv ^
     --hidden-import ui.map_component ^
