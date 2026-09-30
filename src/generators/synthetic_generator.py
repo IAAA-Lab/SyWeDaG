@@ -300,6 +300,7 @@ class SyntheticWeatherGenerator:
         Returns:
             List of dictionaries with hourly data
         """
+        random.seed()
         # --- Continuous series for temp / humidity / pressure / wind ---------------
         temperature_series = generate_continuous_temperature(daily_data, self._parse_hour)
         humidity_series = generate_continuous_humidity(daily_data, self._parse_hour)

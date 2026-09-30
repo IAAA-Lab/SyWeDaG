@@ -780,7 +780,6 @@ def distribute_precipitation(total_precip: float) -> List[float]:
     hourly_precip = [0.0] * 24
     if total_precip <= 0:
         return hourly_precip
-    random.seed(int(total_precip * 1000))
     if total_precip < 5:
         rain_hours = random.randint(2, 4)
     elif total_precip < 15:
