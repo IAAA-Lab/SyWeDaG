@@ -8,13 +8,13 @@ A desktop application for generating and visualizing synthetic meteorological sc
 
 ```
 ├── assets/                          # Images and resources
-├── config/ 
+├── config/
 │   └── config.json                  # Application and data-source configuration
 ├── data/                            # Local SQLite database files
 ├── examples/                        # Offline, network-free tutorial (see Testing below)
 ├── sample_pred_excels/              # Sample prediction Excel files
 ├── tests/                           # pytest suite, mirrors the src/ layout
-├── src/ 
+├── src/
 │   ├── _version.py                  # Single source of truth for the app version
 │   ├── main.py                      # Streamlit entry point
 │   ├── application/                 # Application/business logic (UI-independent)
@@ -71,19 +71,23 @@ A desktop application for generating and visualizing synthetic meteorological sc
 
 The software has been tested on the following platforms:
 
-| Operating System | Web | Desktop | Support Status |
-|---|---:|---:|---|
-| Ubuntu 22.04 | ✅ | ⚠️ | Partially supported |
-| Windows | ✅ | ✅ | Supported |
-| macOS | — | — | Not tested |
-
-On Ubuntu 22.04, the project can be successfully compiled and executed in a web-based environment. However, compatibility issues currently prevent the desktop version from running correctly.
-
-Linux desktop support is currently under development. We are actively working to resolve these issues and provide full Linux desktop support.
+| Operating System | Web | Desktop | Support Status      |
+| ---------------- | --: | ------: | ------------------- |
+| Ubuntu 22.04     |  ✅ |      ✅ | Partially supported |
+| Windows          |  ✅ |      ✅ | Supported           |
+| macOS            |   — |       — | Not tested          |
 
 ## Installation
 
+Recommended creating a new Python environment:
+
+```bash
+conda create -n sywedag python=3.12
+conda activate sywedag
+```
+
 Install Python dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -97,8 +101,10 @@ streamlit run main.py
 ```
 
 For desktop mode (from root directory):
+
 ```bash
-build_desktop.bat
+build_desktop.bat # Windows
+./build_desktop.sh # Linux
 ```
 
 This will create a standalone executable in the `dist` folder.
@@ -112,6 +118,7 @@ sample dataset, no AEMET API key or network access required. See
 ## Configuration
 
 Edit `config/config.json` to:
+
 - Add new data sources
 - Modify default map settings
 - Configure data source geographical boundaries
