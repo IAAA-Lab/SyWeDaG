@@ -10,10 +10,24 @@ from utils.system_utils import save_bytes_to_downloads, safe_print
 from application.config_services import (
     validate_predictions,
     get_mandatory_weather_data,
+    get_hourly_precipitation_data,
     compute_generation_dates,
     generate_synthetic_data,
     METHOD_OPTIONS_MAP,
 )
+
+HOURLY_PRECIPITATION_MODEL_OPTIONS = {
+    "Statistical model": "legacy",
+    "Historical ML model": "historical_ml",
+}
+
+def _get_hourly_source_options(config):
+    """Return configured sources that support hourly precipitation."""
+    return [
+        source["name"]
+        for source in config.get("data_sources", [])
+        if source.get("supports_hourly_precipitation", False)
+    ]
 
 # Build template example DataFrame and variables DataFrame
 def _build_template_example_dataframe():
@@ -243,6 +257,39 @@ def render_config_page(config):
         help="Annual cycles complete historical years; Monthly cycles historical years independently for each month.",
     )
 
+    st.markdown("---")
+    st.markdown("### Hourly precipitation generation")
+    hourly_model_col, hourly_source_col = st.columns(2)
+
+    with hourly_model_col:
+        hourly_model_label = st.radio(
+            "Hourly precipitation model:",
+            options=list(HOURLY_PRECIPITATION_MODEL_OPTIONS.keys()),
+            index=0,
+            key="hourly_precipitation_model_radio",
+            horizontal=True,
+            help="Select the statistical model or the historical ML model.",
+        )
+
+    hourly_source_label = None
+    if HOURLY_PRECIPITATION_MODEL_OPTIONS[hourly_model_label] == "historical_ml":
+        with hourly_source_col:
+            hourly_source_options = _get_hourly_source_options(config)
+            if not hourly_source_options:
+                hourly_source_options = ["None"]
+            default_hourly_source = (
+                "Open-Meteo"
+                if "Open-Meteo" in hourly_source_options
+                else hourly_source_options[0]
+            )
+            hourly_source_label = st.selectbox(
+                "Hourly precipitation data source:",
+                options=hourly_source_options,
+                index=hourly_source_options.index(default_hourly_source),
+                key="hourly_precipitation_source_selectbox",
+                help="Independent source used only for historical hourly precipitation.",
+            )
+
     # ── Secondary Variables Method ──────────────────────────────────────
     st.markdown("---")
     st.markdown("### Secondary Variables Method")
@@ -358,6 +405,21 @@ def render_config_page(config):
                 selected_label = st.session_state.get(
                     'correction_method_radio', 'K-Nearest Neighbors'
                 )
+                hourly_model = HOURLY_PRECIPITATION_MODEL_OPTIONS[hourly_model_label]
+                hourly_records = None
+                if hourly_model == "historical_ml":
+                    if hourly_source_label == "None":
+                        raise ValueError(
+                            "The historical hourly ML model requires a source with hourly precipitation"
+                        )
+                    hourly_records = get_hourly_precipitation_data(
+                        latitude=latitude,
+                        longitude=longitude,
+                        start_year=start_year,
+                        end_year=end_year,
+                        config=config,
+                        selected_data_source=hourly_source_label,
+                    )
 
                 job_id, rows_inserted, generated_data = generate_synthetic_data(
                     source=selected_source,
@@ -371,6 +433,8 @@ def render_config_page(config):
                     predictions_df=predictions_df,
                     correction_method_label=selected_label,
                     generation_mode_label=generation_mode_label,
+                    hourly_precipitation_records=hourly_records,
+                    hourly_precipitation_model=hourly_model,
                 )
                 
                 # Clear modal

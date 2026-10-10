@@ -40,6 +40,14 @@ class DailyWeatherRecord:
 
 
 @dataclass
+class HourlyPrecipitationRecord:
+    """Hourly precipitation record used by optional hourly models."""
+    date: str                                   # Local date (YYYY-MM-DD)
+    hour: int                                   # Local hour (0-23)
+    precipitation: float                        # Precipitation in mm
+
+
+@dataclass
 class WeatherData:
     """Daily meteorological data for a specific period"""
     daily_records: List[DailyWeatherRecord]  # List of daily records
@@ -61,6 +69,21 @@ class BaseWeatherSource(ABC):
         """
         self.config = config
         self.source_name = config.get('name', self.__class__.__name__)
+
+    def get_hourly_precipitation_data(
+        self,
+        start_year: int,
+        end_year: int,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        station_id: Optional[str] = None,
+    ) -> Optional[List[HourlyPrecipitationRecord]]:
+        """Return optional hourly precipitation data for the source.
+
+        Sources that do not provide hourly precipitation keep the existing
+        behaviour by inheriting this method and returning ``None``.
+        """
+        return None
 
     @abstractmethod
     def get_nearest_station(self, latitude: float, longitude: float) -> Optional[WeatherStation]:

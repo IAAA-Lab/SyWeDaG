@@ -273,6 +273,35 @@ def apply_config_styles():
     .st-key-generation_mode_radio ~ div {
         color: black !important;
     }
+
+    /* Hourly precipitation model selector */
+    .st-key-hourly_precipitation_model_radio label,
+    .st-key-hourly_precipitation_model_radio [role="radio"],
+    .st-key-hourly_precipitation_model_radio span,
+    .st-key-hourly_precipitation_model_radio div {
+        color: black !important;
+    }
+
+    .st-key-hourly_precipitation_model_radio ~ div {
+        color: black !important;
+    }
+
+    /* Hourly precipitation controls: left aligned and compact */
+    .st-key-hourly_precipitation_model_radio,
+    .st-key-hourly_precipitation_source_selectbox {
+        margin-left: 0 !important;
+        margin-right: auto !important;
+        justify-content: flex-start !important;
+        align-items: flex-start !important;
+    }
+
+    .st-key-hourly_precipitation_source_selectbox {
+        width: 50% !important;
+    }
+
+    .st-key-hourly_precipitation_source_selectbox [data-baseweb="select"] {
+        width: 100% !important;
+    }
     
     /* Error Modal Styles */
     .error-modal-container {

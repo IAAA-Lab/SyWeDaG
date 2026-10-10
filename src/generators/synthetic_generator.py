@@ -38,6 +38,10 @@ from generators.hourly_generation.hourly_interpolator import (
     distribute_precipitation,
     interpolate_wind_speed,
 )
+from generators.hourly_generation.hourly_precipitation_model import (
+    HistoricalHourlyPrecipitationModel,
+)
+from data_sources.base_source import HourlyPrecipitationRecord
 
 class SyntheticWeatherGenerator:
     """
@@ -49,7 +53,9 @@ class SyntheticWeatherGenerator:
     """
     
     def __init__(self, source: str, id_station: str, historical_start: str, 
-                 historical_end: str, generation_start: str, generation_end: str):
+                 historical_end: str, generation_start: str, generation_end: str,
+                 hourly_precipitation_records: Optional[List[HourlyPrecipitationRecord]] = None,
+                 hourly_precipitation_model: str = 'legacy'):
         """
         Initialize the generator.
         
@@ -67,6 +73,8 @@ class SyntheticWeatherGenerator:
         self.historical_end = historical_end
         self.generation_start = generation_start
         self.generation_end = generation_end
+        self.hourly_precipitation_records = hourly_precipitation_records or []
+        self.hourly_precipitation_model = hourly_precipitation_model
         
         # Load DAILY historical data
         self.historical_data = get_historical_daily_data(
@@ -307,6 +315,16 @@ class SyntheticWeatherGenerator:
         pressure_series = generate_continuous_pressure(daily_data, self._parse_hour)
         wind_series = generate_continuous_wind(daily_data, self._parse_hour)
 
+        hourly_ml_model = None
+        if self.hourly_precipitation_model == 'historical_ml':
+            if not self.hourly_precipitation_records:
+                raise ValueError(
+                    "The historical ML precipitation model requires hourly history"
+                )
+            hourly_ml_model = HistoricalHourlyPrecipitationModel(
+                self.hourly_precipitation_records
+            ).fit()
+
         # --- Assemble hourly records ---------------------------------------
         all_hourly: List[Dict] = []
         for day_idx, daily_rec in enumerate(daily_data):
@@ -315,7 +333,10 @@ class SyntheticWeatherGenerator:
 
             # Per-day variables (unchanged)
             prec = daily_rec.get('precipitation', 0.0) or 0.0
-            hourly_precip = distribute_precipitation(prec)
+            if self.hourly_precipitation_model == 'historical_ml':
+                hourly_precip = hourly_ml_model.generate(date_label, prec)
+            else:
+                hourly_precip = distribute_precipitation(prec)
 
             wind_mean = daily_rec.get('wind_speed_mean')
             wind_max = daily_rec.get('wind_speed_max')

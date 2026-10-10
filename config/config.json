@@ -15,7 +15,8 @@
       "api_url": "https://opendata.aemet.es/opendata/api",
       "key_url": "https://opendata.aemet.es/centrodedescargas/altaUsuario",
       "api_key_env_var": "AEMET_API_KEY",
-      "last_data_year": 1920
+      "last_data_year": 1920,
+      "supports_hourly_precipitation": false
     },
     {
       "name": "Open-Meteo",
@@ -24,7 +25,8 @@
       "color": "#4ECDC4",
       "geojson_path": "assets/geocountries/geoBoundaries-ESP-ADM0_simplified.geojson",
       "api_url": "https://archive-api.open-meteo.com/v1/archive",
-      "last_data_year": 1940
+      "last_data_year": 1940,
+      "supports_hourly_precipitation": true
     }
   ]
 }

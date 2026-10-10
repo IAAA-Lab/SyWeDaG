@@ -11,6 +11,7 @@ from retry_requests import retry
 from data_sources.base_source import (
     BaseWeatherSource,
     DailyWeatherRecord,
+    HourlyPrecipitationRecord,
     WeatherData,
     WeatherStation,
 )
@@ -106,6 +107,116 @@ class OpenMeteoWeatherSource(BaseWeatherSource):
         all_records.sort(key=lambda record: record.date)
         safe_print(f"✅ Open-Meteo total records: {len(all_records)}")
         return WeatherData(daily_records=all_records)
+
+    def get_hourly_precipitation_data(
+        self,
+        start_year: int,
+        end_year: int,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        station_id: Optional[str] = None,
+    ) -> list[HourlyPrecipitationRecord]:
+        """Download hourly precipitation for a coordinate and date range."""
+        if latitude is None or longitude is None:
+            raise ValueError("Open-Meteo requires latitude and longitude")
+
+        safe_print(
+            f"🌧️ Downloading hourly precipitation: {start_year}-{end_year} "
+            f"at ({latitude}, {longitude})"
+        )
+        today = date.today()
+        current = date(start_year, 1, 1)
+        end_date = today if end_year == today.year else date(end_year, 12, 31)
+        chunk_days = int(self.config.get("chunk_days", 730))
+        all_records: list[HourlyPrecipitationRecord] = []
+
+        while current <= end_date:
+            chunk_end = min(current + timedelta(days=chunk_days - 1), end_date)
+            try:
+                all_records.extend(
+                    self._fetch_hourly_precipitation_chunk(
+                        latitude, longitude, current, chunk_end
+                    )
+                )
+                safe_print(
+                    f"✅ Hourly precipitation chunk loaded: "
+                    f"{current.isoformat()} to {chunk_end.isoformat()} "
+                    f"({len(all_records)} records accumulated)"
+                )
+                current = chunk_end + timedelta(days=1)
+            except Exception as error:
+                safe_print(
+                    f"⚠️ Open-Meteo hourly chunk failed "
+                    f"({current.isoformat()} to {chunk_end.isoformat()}): {error}"
+                )
+                if chunk_days > 7:
+                    chunk_days = max(chunk_days // 2, 7)
+                else:
+                    current = min(current + timedelta(days=7), end_date + timedelta(days=1))
+
+        if not all_records:
+            raise ValueError(
+                f"No hourly precipitation obtained for ({latitude}, {longitude}) "
+                f"in {start_year}-{end_year}"
+            )
+
+        all_records.sort(key=lambda record: (record.date, record.hour))
+        dates = sorted({record.date for record in all_records})
+        values = [record.precipitation for record in all_records]
+        wet_records = sum(value > 0 for value in values)
+        safe_print(
+            f"📊 Hourly precipitation completed: {len(all_records)} records, "
+            f"{len(dates)} dates, {wet_records} wet hours, "
+            f"range={min(values):.2f}-{max(values):.2f} mm/h"
+        )
+        safe_print(
+            f"🔎 Hourly precipitation sample: "
+            f"{all_records[0].date} {all_records[0].hour:02d}:00="
+            f"{all_records[0].precipitation:.2f} mm, ... "
+            f"{all_records[-1].date} {all_records[-1].hour:02d}:00="
+            f"{all_records[-1].precipitation:.2f} mm"
+        )
+        return all_records
+
+    def _fetch_hourly_precipitation_chunk(
+        self,
+        latitude: float,
+        longitude: float,
+        start_date: date,
+        end_date: date,
+    ) -> list[HourlyPrecipitationRecord]:
+        cache_session = requests_cache.CachedSession('.cache', expire_after=-1)
+        retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
+        openmeteo = openmeteo_requests.Client(session=retry_session)
+        responses = openmeteo.weather_api(
+            self.api_url,
+            params={
+                "latitude": latitude,
+                "longitude": longitude,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "hourly": ["precipitation"],
+                "timezone": "auto",
+            },
+        )
+        response = responses[0]
+        hourly = response.Hourly()
+        values = hourly.Variables(0).ValuesAsNumpy()
+        times = pd.date_range(
+            start=pd.to_datetime(hourly.Time() + response.UtcOffsetSeconds(), unit="s", utc=True),
+            end=pd.to_datetime(hourly.TimeEnd() + response.UtcOffsetSeconds(), unit="s", utc=True),
+            freq=pd.Timedelta(seconds=hourly.Interval()),
+            inclusive="left",
+        )
+
+        return [
+            HourlyPrecipitationRecord(
+                date=timestamp.strftime("%Y-%m-%d"),
+                hour=int(timestamp.hour),
+                precipitation=float(value) if pd.notna(value) else 0.0,
+            )
+            for timestamp, value in zip(times, values)
+        ]
 
     def _fetch_chunk(
         self,

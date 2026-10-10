@@ -7,6 +7,7 @@ from typing import Optional
 import pandas as pd
 
 from data_sources.source_selector import get_data_source_instance
+from data_sources.base_source import HourlyPrecipitationRecord
 from generators.synthetic_generator import SyntheticWeatherGenerator
 from database.sqliteDB import insert_weather_stations, insert_historical_daily_data
 from utils.system_utils import safe_print
@@ -173,6 +174,36 @@ def get_mandatory_weather_data(
     return nearest_station, weather_data
 
 
+def get_hourly_precipitation_data(
+    latitude: float,
+    longitude: float,
+    start_year: int,
+    end_year: int,
+    config: dict,
+    selected_data_source: Optional[str],
+) -> Optional[list[HourlyPrecipitationRecord]]:
+    """Get optional hourly precipitation history for the selected source."""
+    if selected_data_source is None:
+        return None
+    data_source = get_data_source_instance(selected_data_source, config)
+    if data_source is None:
+        raise ValueError(f"Data source '{selected_data_source}' not configured")
+    safe_print(
+        f"🌧️ Hourly precipitation source selected: {selected_data_source}"
+    )
+    hourly_data = data_source.get_hourly_precipitation_data(
+        start_year=start_year,
+        end_year=end_year,
+        latitude=latitude,
+        longitude=longitude,
+    )
+    if hourly_data is None:
+        raise ValueError(
+            f"Data source '{selected_data_source}' does not provide hourly precipitation"
+        )
+    return hourly_data
+
+
 def compute_generation_dates(
     weather_data,
     end_year: int,
@@ -213,6 +244,8 @@ def generate_synthetic_data(
     predictions_df: Optional[pd.DataFrame],
     correction_method_label: str,
     generation_mode_label: str = "Annual",
+    hourly_precipitation_records: Optional[list[HourlyPrecipitationRecord]] = None,
+    hourly_precipitation_model: str = "legacy",
 ):
     """
     Run synthetic data generation and persistence.
@@ -227,6 +260,8 @@ def generate_synthetic_data(
         historical_end=actual_historical_end,
         generation_start=actual_generation_start,
         generation_end=f"{gen_end_year}-12-31",
+        hourly_precipitation_records=hourly_precipitation_records,
+        hourly_precipitation_model=hourly_precipitation_model,
     )
 
     correction_method = METHOD_OPTIONS_MAP.get(correction_method_label, "knn")
