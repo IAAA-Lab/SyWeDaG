@@ -73,7 +73,7 @@ The software has been tested on the following platforms:
 
 | Operating System | Web | Desktop | Support Status      |
 | ---------------- | --: | ------: | ------------------- |
-| Ubuntu 22.04     |  ✅ |      ✅ | Partially supported |
+| Ubuntu 22.04     |  ✅ |      ✅ | Supported |
 | Windows          |  ✅ |      ✅ | Supported           |
 | macOS            |   — |       — | Not tested          |
 
