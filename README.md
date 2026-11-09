@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/IAAA-Lab/SyWeDaG/actions/workflows/ci.yml/badge.svg)](https://github.com/IAAA-Lab/SyWeDaG/actions/workflows/ci.yml)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23418852.svg)](https://doi.org/10.5281/zenodo.23418852)
+
 A desktop application for generating and visualizing synthetic meteorological scenarios using historical weather data from multiple sources (AEMET for Spain, extensible to other countries).
 
 ## Project Structure
